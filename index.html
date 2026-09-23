@@ -153,7 +153,7 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
 .mi-desc{font-size:.88rem;color:rgba(192,187,179,.65);font-style:italic;font-family:"Cormorant Garamond",serif;margin-top:.16rem;line-height:1.5;}
 .mi-vol{color:rgba(168,163,155,.5);font-size:.84rem;}
 .mi-price{font-family:"Cinzel",serif;font-size:1.02rem;color:var(--gold);white-space:nowrap;flex-shrink:0;padding-top:.1rem;font-weight:600;text-align:right;}
-.mi-price .p-lbl{display:block;font-family:"Lato",sans-serif;font-weight:400;font-size:.6rem;letter-spacing:.06em;color:var(--cream-dim);text-transform:lowercase;}
+.mi-price .p-lbl{display:block;font-family:"Lato",sans-serif;font-weight:400;font-size:.6rem;letter-spacing:.06em;color:var(--cream-dim);}
 .mi-price .p-anchor{display:block;margin-top:.3rem;font-size:.8rem;font-weight:400;color:var(--cream-dim);}
 .item-al{display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.26rem;}
 .al-tag{font-size:.7rem;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.22);color:rgba(201,168,76,.8);border-radius:4px;padding:.08rem .35rem;}
@@ -211,6 +211,35 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
 .picker-close{position:absolute;top:.9rem;right:1rem;background:none;border:none;color:var(--cream-dim);font-size:1.5rem;cursor:pointer;}
 .picker-title{font-family:"Cinzel",serif;color:var(--gold);text-align:center;margin-bottom:1.2rem;font-size:.78rem;letter-spacing:.28em;}
 .picker-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;max-width:400px;margin:0 auto;}
+
+/* DESKTOP / TABLET */
+@media (min-width:760px){
+  .qa-grid,.ic-grid{max-width:880px;grid-template-columns:repeat(4,1fr);}
+  .qa-full{grid-column:1/-1;}
+  .about-card{max-width:880px;padding:1.5rem 2rem;}
+  .about-card p{font-size:1.15rem;}
+  .al-grid{max-width:960px;grid-template-columns:repeat(3,1fr);}
+  .info-wrap{max-width:880px;display:grid;grid-template-columns:1fr 1fr;}
+  .wifi-card{grid-column:1/-1;}
+  .menu-tabs{justify-content:center;}
+  .lang-strip,.filter-bar{padding-left:max(.8rem,calc((100% - 1100px)/2));padding-right:max(.8rem,calc((100% - 1100px)/2));}
+  .lang-strip{justify-content:center;}
+  .menu-content{max-width:1100px;padding:1.4rem 1.5rem;}
+}
+@media (min-width:1000px){
+  /* Bottom navigation moves into the top bar */
+  .bottom-nav{top:0;bottom:auto;left:50%;right:auto;transform:translateX(-50%);background:none;border:none;backdrop-filter:none;padding:0;z-index:101;}
+  .nav-btn{flex:none;flex-direction:row;gap:.4rem;padding:.95rem 1rem;font-size:.72rem;letter-spacing:.1em;}
+  .nav-btn .ni{font-size:1rem;}
+  .top-bar{padding:.68rem 2rem;}
+  .page{padding-bottom:3rem;}
+  /* Two columns of dishes per category */
+  .menu-cat{display:grid;grid-template-columns:1fr 1fr;column-gap:3rem;align-items:start;}
+  .menu-cat .cat-title{grid-column:1/-1;}
+  .menu-item:last-child{border-bottom:1px solid rgba(255,255,255,.05);}
+  .home-hero{padding-top:2.5rem;}
+  .chat-box{height:420px;}
+}
 </style>
 </head>
 <body>
@@ -259,17 +288,17 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
       <div class="h-divider"></div>
     </div>
     <div class="card about-card">
-      <p>Deveron nosi ime po jedrenjaku izgrađenom u Velikoj Britaniji za lošinjansku obitelj Cosulich — uvijek s kapetanima iz Lošinja za kormilom. Svaki detalj u kuhinji i za stolom radimo s istom pažnjom kojom su kapetani plovili daleka mora.</p>
-      <span class="about-hl">Lošinjskim jedrima oko svijeta 🚢</span>
+      <p data-i18n="about">Deveron nosi ime po jedrenjaku izgrađenom u Velikoj Britaniji za lošinjansku obitelj Cosulich — uvijek s kapetanima iz Lošinja za kormilom. Svaki detalj u kuhinji i za stolom radimo s istom pažnjom kojom su kapetani plovili daleka mora.</p>
+      <span class="about-hl" data-i18n="about_hl">Lošinjskim jedrima oko svijeta 🚢</span>
       <div class="gm-row">
-        <div><div class="gm-sub">Gault Millau</div><div class="gm-score">12,5 kapica 🏆</div></div>
+        <div><div class="gm-sub">Gault Millau</div><div class="gm-score"><span data-i18n="gm_score">12,5 kapica</span> 🏆</div></div>
         <a href="https://hr.gaultmillau.com/en/restaurants/deveron-gastro-pub" target="_blank" rel="noopener" class="gm-link" id="gm-link-home">Gault Millau →</a>
       </div>
     </div>
     <div class="qa-grid">
       <a class="qa-btn qa-full" href="https://deveron-gastro-pub-1683645478.resos.com/booking" target="_blank" rel="noopener">
         <span class="qa-icon">📅</span>
-        <div><div class="qa-label" id="qa-res">Rezerviraj stol</div><div class="qa-desc">Online rezervacija →</div></div>
+        <div><div class="qa-label" data-i18n="reserve_table">Rezerviraj stol</div><div class="qa-desc" data-i18n="online_booking">Online rezervacija →</div></div>
       </a>
       <button class="qa-btn" onclick="showPage('menu')"><span class="qa-icon">🍽️</span><div><div class="qa-label" id="qa-menu">Meni</div></div></button>
       <button class="qa-btn" onclick="showPage('alergeni')"><span class="qa-icon">⚠️</span><div><div class="qa-label" id="qa-al">Alergeni</div></div></button>
@@ -278,12 +307,12 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
     </div>
     <div class="ic-grid">
       <div class="ic" onclick="window.open('https://maps.google.com/?q=Deveron+Gastro+Pub+Mali+Losinj','_blank','noopener')">
-        <div class="ic-icon">📍</div><div class="ic-label">Adresa</div>
+        <div class="ic-icon">📍</div><div class="ic-label" data-i18n="address">Adresa</div>
         <div class="ic-val">Ul. V. Gortana 32<br><span style="color:var(--gold);font-size:.88rem;">Google Maps →</span></div>
       </div>
       <div class="ic">
         <div class="ic-icon">🕐</div><div class="ic-label" id="ic-hours">Radno vrijeme</div>
-        <div class="ic-val">08:00–24:00<br><span style="font-size:.84rem;color:var(--cream-dim);">Kuhinja do 22:00</span></div>
+        <div class="ic-val">08:00–24:00<br><span style="font-size:.84rem;color:var(--cream-dim);" data-i18n="kitchen_until">Kuhinja do 22:00</span></div>
       </div>
       <div class="ic" onclick="window.open('https://www.instagram.com/deveronpub/','_blank','noopener')">
         <div class="ic-icon">📸</div><div class="ic-label">Instagram</div><div class="ic-val" style="color:var(--gold);">@deveronpub</div>
@@ -297,12 +326,12 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
   <!-- MENI -->
   <div class="page" id="page-menu">
     <div class="menu-tabs">
-      <button class="mtab active" onclick="switchTab('jelovnik',this)" id="mtab-jelo">🍽️ <span id="tab-jelo-lbl">Jelovnik</span></button>
+      <button class="mtab active" onclick="switchTab('jelovnik',this)" id="mtab-jelo">🍽️ <span data-i18n="tab_food">Jelovnik</span></button>
       <button class="mtab" onclick="switchTab('spec',this)" id="mtab-spec">⭐ <span id="tab-spec-lbl">Specijaliteti</span></button>
       <button class="mtab" onclick="switchTab('dorucak',this)" id="mtab-dor">🥐 <span id="tab-dor-lbl">Doručak</span></button>
-      <button class="mtab" onclick="switchTab('pica',this)">🍸 Pića</button>
-      <button class="mtab" onclick="switchTab('vino',this)">🍷 Vino</button>
-      <button class="mtab" onclick="switchTab('desert',this)">🍰 Deserti</button>
+      <button class="mtab" onclick="switchTab('pica',this)">🍸 <span data-i18n="tab_drinks">Pića</span></button>
+      <button class="mtab" onclick="switchTab('vino',this)">🍷 <span data-i18n="tab_wine">Vino</span></button>
+      <button class="mtab" onclick="switchTab('desert',this)">🍰 <span data-i18n="tab_desserts">Deserti</span></button>
     </div>
 
     <!-- JELOVNIK -->
@@ -357,7 +386,7 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
       <h2>⚠️ <em id="al-page-title">Alergeni</em></h2>
       <div class="pdiv"></div>
     </div>
-    <p class="al-note" id="al-note">Za detalje o alergenima u pojedinim jelima, molimo obratite se osoblju.</p>
+    <p class="al-note" data-i18n="al_note">Za detalje o alergenima u pojedinim jelima, molimo obratite se osoblju.</p>
     <div class="al-grid" id="al-grid"></div>
   </div>
 
@@ -386,14 +415,14 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
     <div class="page-header"><h2>ℹ️ <em>Info</em></h2><div class="pdiv"></div></div>
     <div class="info-wrap">
       <div class="wifi-card">
-        <div class="wifi-lbl">🛜 WiFi MREŽA / NETWORK</div>
+        <div class="wifi-lbl">🛜 <span data-i18n="wifi_network">WiFi mreža</span></div>
         <div class="wifi-name">deveronpub</div>
-        <div class="wifi-lbl" style="margin-top:.5rem;">🔑 LOZINKA / PASSWORD</div>
+        <div class="wifi-lbl" style="margin-top:.5rem;">🔑 <span data-i18n="wifi_password">Lozinka</span></div>
         <div class="wifi-pass">deveronpub2019</div>
       </div>
       <div class="info-row" onclick="window.open('https://maps.google.com/?q=Deveron+Gastro+Pub+Mali+Losinj','_blank','noopener')">
         <span class="ir-icon">📍</span>
-        <div><div class="ir-label">Adresa</div><div class="ir-val">Ul. Vladimira Gortana 32, Mali Lošinj<br><span style="color:var(--gold);">Google Maps →</span></div></div>
+        <div><div class="ir-label" data-i18n="address">Adresa</div><div class="ir-val">Ul. Vladimira Gortana 32, Mali Lošinj<br><span style="color:var(--gold);">Google Maps →</span></div></div>
       </div>
       <div class="info-row" onclick="window.location.href='tel:+38551231234'">
         <span class="ir-icon">📞</span>
@@ -403,21 +432,21 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
         <span class="ir-icon">🕐</span>
         <div>
           <div class="ir-label" id="info-hours">Radno vrijeme</div>
-          <div class="ir-val"><span class="hours-hl">08:00 – 24:00</span> (15.06. – 23.09.)<br><span style="color:var(--cream-dim);font-size:.92rem;">🍳 Kuhinja: 08:00 – 22:00</span></div>
+          <div class="ir-val"><span class="hours-hl">08:00 – 24:00</span> (<span data-i18n="season">sezona</span> 15.06. – 23.09.)<br><span style="color:var(--cream-dim);font-size:.92rem;">🍳 <span data-i18n="kitchen">Kuhinja</span>: 08:00 – 22:00</span></div>
         </div>
       </div>
       <div class="info-row">
         <span class="ir-icon">🅿️</span>
         <div>
           <div class="ir-label" id="info-parking">Parkiranje</div>
-          <div class="ir-val" style="font-size:.92rem;">• <strong style="color:var(--gold-light);">Nova Obala</strong><br>• <strong style="color:var(--gold-light);">Lidl parkiranje</strong><br>• <strong style="color:var(--gold-light);">Dvorana parking</strong><br><span style="color:var(--cream-dim);font-size:.84rem;">~5 min hoda, izvan centra</span></div>
+          <div class="ir-val" style="font-size:.92rem;">• <strong style="color:var(--gold-light);">Nova Obala</strong><br>• <strong style="color:var(--gold-light);">Lidl</strong><br>• <strong style="color:var(--gold-light);">Dvorana</strong><br><span style="color:var(--cream-dim);font-size:.84rem;"><span data-i18n="parking_note">~5 min hoda, izvan centra</span></span></div>
         </div>
       </div>
       <div class="info-row" onclick="window.open('https://hr.gaultmillau.com/en/restaurants/deveron-gastro-pub','_blank','noopener')">
         <span class="ir-icon">🏆</span>
         <div>
           <div class="ir-label">Gault Millau</div>
-          <div class="ir-val"><span style="color:var(--gold);font-size:1.05rem;font-weight:700;">12,5 kapica</span><br><span class="ir-val" id="gm-link-info" style="color:var(--gold);font-size:.88rem;">Gault Millau profil →</span></div>
+          <div class="ir-val"><span style="color:var(--gold);font-size:1.05rem;font-weight:700;" data-i18n="gm_score">12,5 kapica</span><br><span class="ir-val" id="gm-link-info" style="color:var(--gold);font-size:.88rem;">Gault Millau profil →</span></div>
         </div>
       </div>
       <div class="info-row" onclick="window.open('https://www.instagram.com/deveronpub/','_blank','noopener')">
@@ -432,6 +461,7 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
     <button class="nav-btn active" onclick="showPage('home')" id="nav-home"><span class="ni">🏠</span><span id="nl-home">Početna</span></button>
     <button class="nav-btn" onclick="showPage('menu')" id="nav-menu"><span class="ni">🍽️</span><span id="nl-menu">Meni</span></button>
     <button class="nav-btn" onclick="showPage('alergeni')" id="nav-al"><span class="ni">⚠️</span><span id="nl-al">Alergeni</span></button>
+    <button class="nav-btn" onclick="showPage('info')" id="nav-info"><span class="ni">ℹ️</span><span data-i18n="info">Info</span></button>
     <button class="nav-btn" onclick="showPage('ai')" id="nav-ai"><span class="ni">🤖</span><span id="nl-ai">AI Chat</span></button>
     <a class="nav-btn" href="https://deveron-gastro-pub-1683645478.resos.com/booking" target="_blank" rel="noopener"><span class="ni">📅</span><span id="nl-res">Rezerviraj</span></a>
   </nav>
@@ -455,12 +485,18 @@ const CAT_ORDER    = ["HLADNA PREDJELA", "TJESTENINE I RI\u017dOTI", "SALATE", "
 const CAT_ICONS    = {"HLADNA PREDJELA": "\ud83e\udd57", "TJESTENINE I RI\u017dOTI": "\ud83c\udf5d", "SALATE": "\ud83e\udd59", "MESNA JELA": "\ud83e\udd69", "RIBLJA JELA": "\ud83d\udc1f", "PIZZA": "\ud83c\udf55", "KIDS MENU": "\ud83e\uddd2"};
 const CAT_TR       = {"HLADNA PREDJELA": {"HR": "Hladna Predjela", "EN": "Cold Starters", "DE": "Kalte Vorspeise", "IT": "Antipasti", "FR": "Entrées", "ES": "Entrantes", "PT": "Entradas", "NL": "Voorgerechten", "PL": "Przystawki", "RU": "Закуски", "HU": "Előételek", "CS": "Předkrmy", "SK": "Predjedlá", "SL": "Hladne Predjedi", "UA": "Холодні Закуски", "RO": "Aperitive"}, "TJESTENINE I RIŽOTI": {"HR": "Tjestenine i Rižoti", "EN": "Pasta & Risotto", "DE": "Pasta & Risotto", "IT": "Pasta e Risotto", "FR": "Pâtes & Risotto", "ES": "Pasta y Risotto", "PT": "Massa e Risoto", "NL": "Pasta & Risotto", "PL": "Makaron i Risotto", "RU": "Паста и Ризотто", "HU": "Tészta és Risotto", "CS": "Těstoviny", "SK": "Cestoviny", "SL": "Testenine", "UA": "Паста", "RO": "Paste"}, "SALATE": {"HR": "Salate", "EN": "Salads", "DE": "Salate", "IT": "Insalate", "FR": "Salades", "ES": "Ensaladas", "PT": "Saladas", "NL": "Salades", "PL": "Sałatki", "RU": "Салаты", "HU": "Saláták", "CS": "Saláty", "SK": "Šaláty", "SL": "Solate", "UA": "Салати", "RO": "Salate"}, "MESNA JELA": {"HR": "Mesna Jela", "EN": "Meat Dishes", "DE": "Fleischgerichte", "IT": "Piatti di Carne", "FR": "Plats de Viande", "ES": "Platos de Carne", "PT": "Pratos de Carne", "NL": "Vleesgerechten", "PL": "Dania Mięsne", "RU": "Мясные Блюда", "HU": "Húsételek", "CS": "Masitá Jídla", "SK": "Mäsové Jedlá", "SL": "Mesne Jedi", "UA": "М'ясні Страви", "RO": "Feluri de Carne"}, "RIBLJA JELA": {"HR": "Riblja Jela", "EN": "Fish Dishes", "DE": "Fischgerichte", "IT": "Piatti di Pesce", "FR": "Plats de Poisson", "ES": "Platos de Pescado", "PT": "Pratos de Peixe", "NL": "Visgerechten", "PL": "Dania Rybne", "RU": "Рыбные Блюда", "HU": "Halételek", "CS": "Rybí Jídla", "SK": "Rybie Jedlá", "SL": "Ribje Jedi", "UA": "Рибні Страви", "RO": "Feluri de Pește"}, "PIZZA": {"HR": "Pizza", "EN": "Pizza", "DE": "Pizza", "IT": "Pizza", "FR": "Pizza", "ES": "Pizza", "PT": "Pizza", "NL": "Pizza", "PL": "Pizza", "RU": "Пицца", "HU": "Pizza", "CS": "Pizza", "SK": "Pizza", "SL": "Pica", "UA": "Піца", "RO": "Pizza"}, "KIDS MENU": {"HR": "Dječiji Meni", "EN": "Kids Menu", "DE": "Kindermenü", "IT": "Menu Bambini", "FR": "Menu Enfants", "ES": "Menú Infantil", "PT": "Menu Infantil", "NL": "Kindermenu", "PL": "Menu dla Dzieci", "RU": "Детское Меню", "HU": "Gyerekmenü", "CS": "Dětské Menu", "SK": "Detské Menu", "SL": "Otroški Menu", "UA": "Дитяче Меню", "RO": "Meniu Copii"}};
 const AL_ICONS     = {"1": "\ud83c\udf3e", "2": "\ud83e\udd90", "3": "\ud83e\udd5a", "4": "\ud83d\udc1f", "5": "\ud83e\udd5c", "6": "\ud83e\uded8", "7": "\ud83e\udd5b", "8": "\ud83c\udf30", "9": "\ud83e\udd6c", "10": "\ud83c\udf3f", "11": "\ud83c\udf31", "12": "\u2697\ufe0f", "13": "\ud83c\udf38", "14": "\ud83d\udc1a"};
-const AL_NAMES     = {"1": "\u017ditarice/Gluten", "2": "Rakovi", "3": "Jaja", "4": "Riba", "5": "Kikiriki", "6": "Soja", "7": "Mlijeko", "8": "Ora\u0161asti", "9": "Celer", "10": "Goru\u0161ica", "11": "Sezam", "12": "Sulfiti", "13": "Vu\u010dika", "14": "Meku\u0161ci"};
 const LANG_FLAGS   = {"HR": "\ud83c\udded\ud83c\uddf7", "EN": "\ud83c\uddec\ud83c\udde7", "DE": "\ud83c\udde9\ud83c\uddea", "IT": "\ud83c\uddee\ud83c\uddf9", "FR": "\ud83c\uddeb\ud83c\uddf7", "ES": "\ud83c\uddea\ud83c\uddf8", "PT": "\ud83c\uddf5\ud83c\uddf9", "NL": "\ud83c\uddf3\ud83c\uddf1", "PL": "\ud83c\uddf5\ud83c\uddf1", "RU": "\ud83c\uddf7\ud83c\uddfa", "HU": "\ud83c\udded\ud83c\uddfa", "CS": "\ud83c\udde8\ud83c\uddff", "SK": "\ud83c\uddf8\ud83c\uddf0", "SL": "\ud83c\uddf8\ud83c\uddee", "UA": "\ud83c\uddfa\ud83c\udde6", "RO": "\ud83c\uddf7\ud83c\uddf4"};
 const LANGS        = ["HR", "EN", "DE", "IT", "FR", "ES", "PT", "NL", "PL", "RU", "HU", "CS", "SK", "SL", "UA", "RO"];
 const UI           = {"menu": {"HR": "Meni", "EN": "Menu", "DE": "Speisekarte", "IT": "Menu", "FR": "Menu", "ES": "Menú", "PT": "Menu", "NL": "Menu", "PL": "Menu", "RU": "Меню", "HU": "Menü", "CS": "Menu", "SK": "Menu", "SL": "Meni", "UA": "Меню", "RO": "Meniu"}, "home": {"HR": "Početna", "EN": "Home", "DE": "Start", "IT": "Home", "FR": "Accueil", "ES": "Inicio", "PT": "Início", "NL": "Home", "PL": "Strona", "RU": "Главная", "HU": "Főoldal", "CS": "Domů", "SK": "Domov", "SL": "Domov", "UA": "Головна", "RO": "Acasă"}, "allergens": {"HR": "Alergeni", "EN": "Allergens", "DE": "Allergene", "IT": "Allergeni", "FR": "Allergènes", "ES": "Alérgenos", "PT": "Alergénios", "NL": "Allergenen", "PL": "Alergeny", "RU": "Аллергены", "HU": "Allergének", "CS": "Alergeny", "SK": "Alergény", "SL": "Alergeni", "UA": "Алергени", "RO": "Alergeni"}, "info": {"HR": "Info", "EN": "Info", "DE": "Info", "IT": "Info", "FR": "Info", "ES": "Info", "PT": "Info", "NL": "Info", "PL": "Info", "RU": "Инфо", "HU": "Info", "CS": "Info", "SK": "Info", "SL": "Info", "UA": "Інфо", "RO": "Info"}, "reserve": {"HR": "Rezerviraj", "EN": "Reserve", "DE": "Reservierung", "IT": "Prenota", "FR": "Réserver", "ES": "Reservar", "PT": "Reservar", "NL": "Reserveer", "PL": "Rezerwuj", "RU": "Бронь", "HU": "Foglalás", "CS": "Rezervace", "SK": "Rezervácia", "SL": "Rezervacija", "UA": "Бронь", "RO": "Rezervare"}, "all_cats": {"HR": "Sve kategorije", "EN": "All categories", "DE": "Alle", "IT": "Tutte", "FR": "Toutes", "ES": "Todas", "PT": "Todas", "NL": "Alle", "PL": "Wszystkie", "RU": "Все", "HU": "Minden", "CS": "Vše", "SK": "Všetky", "SL": "Vse", "UA": "Всі", "RO": "Toate"}, "show_safe": {"HR": "Prikaži samo sigurna jela", "EN": "Show only safe dishes", "DE": "Nur sichere Gerichte", "IT": "Solo piatti sicuri", "FR": "Plats sûrs seulement", "ES": "Solo platos seguros", "PT": "Só pratos seguros", "NL": "Alleen veilige gerechten", "PL": "Tylko bezpieczne dania", "RU": "Только безопасные блюда", "HU": "Csak biztonságos ételek", "CS": "Jen bezpečná jídla", "SK": "Len bezpečné jedlá", "SL": "Samo varna jela", "UA": "Лише безпечні страви", "RO": "Numai feluri sigure"}, "call": {"HR": "Nazovite nas", "EN": "Call us", "DE": "Anrufen", "IT": "Chiamaci", "FR": "Appelez-nous", "ES": "Llámenos", "PT": "Ligue-nos", "NL": "Bel ons", "PL": "Zadzwoń", "RU": "Позвоните", "HU": "Hívjon", "CS": "Zavolejte", "SK": "Zavolajte", "SL": "Pokličite", "UA": "Зателефонуйте", "RO": "Sunați"}, "hours": {"HR": "Radno vrijeme", "EN": "Opening hours", "DE": "Öffnungszeiten", "IT": "Orario", "FR": "Horaires", "ES": "Horario", "PT": "Horário", "NL": "Openingstijden", "PL": "Godziny", "RU": "Часы работы", "HU": "Nyitvatartás", "CS": "Otevírací doba", "SK": "Otváracie hodiny", "SL": "Delovni čas", "UA": "Години роботи", "RO": "Program"}, "parking": {"HR": "Parkiranje", "EN": "Parking", "DE": "Parken", "IT": "Parcheggio", "FR": "Parking", "ES": "Aparcamiento", "PT": "Estacionamento", "NL": "Parkeren", "PL": "Parking", "RU": "Парковка", "HU": "Parkolás", "CS": "Parkování", "SK": "Parkovanie", "SL": "Parkiranje", "UA": "Паркування", "RO": "Parcare"}, "ai_chat": {"HR": "AI Asistent", "EN": "AI Assistant", "DE": "KI-Assistent", "IT": "Assistente AI", "FR": "Assistant IA", "ES": "Asistente IA", "PT": "Assistente IA", "NL": "AI-assistent", "PL": "Asystent AI", "RU": "ИИ-ассистент", "HU": "AI-asszisztens", "CS": "AI asistent", "SK": "AI asistent", "SL": "AI asistent", "UA": "ШІ-асистент", "RO": "Asistent AI"}, "specials": {"HR": "Specijaliteti", "EN": "Chef's Specials", "DE": "Spezialitäten", "IT": "Specialità", "FR": "Spécialités", "ES": "Especialidades", "PT": "Especialidades", "NL": "Specialiteiten", "PL": "Specjalności", "RU": "Специалитеты", "HU": "Specialitások", "CS": "Speciality", "SK": "Špeciality", "SL": "Specialitete", "UA": "Спеціалітети", "RO": "Specialități"}, "breakfast": {"HR": "Doručak", "EN": "Breakfast", "DE": "Frühstück", "IT": "Colazione", "FR": "Petit-déjeuner", "ES": "Desayuno", "PT": "Pequeno-almoço", "NL": "Ontbijt", "PL": "Śniadanie", "RU": "Завтрак", "HU": "Reggeli", "CS": "Snídaně", "SK": "Raňajky", "SL": "Zajtrk", "UA": "Сніданок", "RO": "Mic dejun"}, "filter_al": {"HR": "Filtriraj alergene", "EN": "Filter allergens", "DE": "Allergene filtern", "IT": "Filtra allergeni", "FR": "Filtrer allergènes", "ES": "Filtrar alérgenos", "PT": "Filtrar alérgenos", "NL": "Filter allergenen", "PL": "Filtruj alergeny", "RU": "Фильтр аллергенов", "HU": "Allergiaszűrő", "CS": "Filtrovat alergeny", "SK": "Filtrovať alergény", "SL": "Filtriraj alergene", "UA": "Фільтр алергенів", "RO": "Filtrează alergeni"}, "gault": {"HR": "Gault Millau profil →", "EN": "Gault Millau profile →", "DE": "Gault Millau Profil →", "IT": "Profilo Gault Millau →", "FR": "Profil Gault Millau →", "ES": "Perfil Gault Millau →", "PT": "Perfil Gault Millau →", "NL": "Gault Millau profiel →", "PL": "Profil Gault Millau →", "RU": "Профиль Gault Millau →", "HU": "Gault Millau profil →", "CS": "Profil Gault Millau →", "SK": "Profil Gault Millau →", "SL": "Profil Gault Millau →", "UA": "Профіль Gault Millau →", "RO": "Profil Gault Millau →"}};
 const WELCOME_ROT  = [{"lang": "HR", "flag": "🇭🇷", "msg": "Dobro došli! Ja sam vaš digitalni asistent."}, {"lang": "EN", "flag": "🇬🇧", "msg": "Welcome! I am your digital assistant."}, {"lang": "DE", "flag": "🇩🇪", "msg": "Willkommen! Ich bin Ihr digitaler Assistent."}, {"lang": "IT", "flag": "🇮🇹", "msg": "Benvenuto! Sono il tuo assistente digitale."}, {"lang": "FR", "flag": "🇫🇷", "msg": "Bienvenue! Je suis votre assistant numérique."}, {"lang": "ES", "flag": "🇪🇸", "msg": "¡Bienvenido! Soy tu asistente digital."}, {"lang": "PT", "flag": "🇵🇹", "msg": "Bem-vindo! Sou seu assistente digital."}, {"lang": "NL", "flag": "🇳🇱", "msg": "Welkom! Ik ben uw digitale assistent."}, {"lang": "PL", "flag": "🇵🇱", "msg": "Witaj! Jestem Twoim asystentem cyfrowym."}, {"lang": "RU", "flag": "🇷🇺", "msg": "Добро пожаловать! Я ваш цифровой ассистент."}, {"lang": "HU", "flag": "🇭🇺", "msg": "Üdvözlöm! Én vagyok a digitális asszisztense."}, {"lang": "CS", "flag": "🇨🇿", "msg": "Vítejte! Jsem váš digitální asistent."}, {"lang": "SK", "flag": "🇸🇰", "msg": "Vitajte! Som váš digitálny asistent."}, {"lang": "SL", "flag": "🇸🇮", "msg": "Dobrodošli! Sem vaš digitalni asistent."}, {"lang": "UA", "flag": "🇺🇦", "msg": "Ласкаво просимо! Я ваш цифровий помічник."}, {"lang": "RO", "flag": "🇷🇴", "msg": "Bun venit! Sunt asistentul tău digital."}];
 const WINE_PAIRS   = {"Ravioli punjeni jakobovim kapicama": "Malvazija Kozlović 🥂", "Ravioli punjeni ricottom": "Malvazija Deklić 🥂", "Ravioli punjeni skutom": "Pošip Nerica 🥂", "Rižoto od lošinjske sipe": "Chard Apolitico 🥂", "Crveni rižoto kozice": "Malvazija Bastijan 🥂", "Rižoto sa komadićima bifteka": "Cabernet Korlat 🍷", "Confit od creske janjetine": "Crljenak Kaštelanski 🍷", "Dalmatinska pašticada": "Teran Deklić 🍷", "Gulaš od lošinjsko": "Syrah Korlat 🍷", "Ražnjić deveron": "Merlot Korlat 🍷", "Mesni pladanj": "Čaruga Apolitico 🍷", "Riblja plata": "Matuško Grk 🥂", "Buzzara": "Maestoso Sur Lie 🥂"};
+
+const UI_EXTRA = {"address": {"HR": "Adresa", "EN": "Address", "DE": "Adresse", "IT": "Indirizzo", "FR": "Adresse", "ES": "Dirección", "PT": "Morada", "NL": "Adres", "PL": "Adres", "RU": "Адрес", "HU": "Cím", "CS": "Adresa", "SK": "Adresa", "SL": "Naslov", "UA": "Адреса", "RO": "Adresă"}, "kitchen": {"HR": "Kuhinja", "EN": "Kitchen", "DE": "Küche", "IT": "Cucina", "FR": "Cuisine", "ES": "Cocina", "PT": "Cozinha", "NL": "Keuken", "PL": "Kuchnia", "RU": "Кухня", "HU": "Konyha", "CS": "Kuchyně", "SK": "Kuchyňa", "SL": "Kuhinja", "UA": "Кухня", "RO": "Bucătărie"}, "kitchen_until": {"HR": "Kuhinja do 22:00", "EN": "Kitchen until 22:00", "DE": "Küche bis 22:00", "IT": "Cucina fino alle 22:00", "FR": "Cuisine jusqu'à 22h00", "ES": "Cocina hasta las 22:00", "PT": "Cozinha até às 22:00", "NL": "Keuken tot 22:00", "PL": "Kuchnia do 22:00", "RU": "Кухня до 22:00", "HU": "Konyha 22:00-ig", "CS": "Kuchyně do 22:00", "SK": "Kuchyňa do 22:00", "SL": "Kuhinja do 22:00", "UA": "Кухня до 22:00", "RO": "Bucătăria până la 22:00"}, "season": {"HR": "sezona", "EN": "season", "DE": "Saison", "IT": "stagione", "FR": "saison", "ES": "temporada", "PT": "época", "NL": "seizoen", "PL": "sezon", "RU": "сезон", "HU": "szezon", "CS": "sezóna", "SK": "sezóna", "SL": "sezona", "UA": "сезон", "RO": "sezon"}, "reserve_table": {"HR": "Rezerviraj stol", "EN": "Book a table", "DE": "Tisch reservieren", "IT": "Prenota un tavolo", "FR": "Réserver une table", "ES": "Reservar mesa", "PT": "Reservar mesa", "NL": "Tafel reserveren", "PL": "Zarezerwuj stolik", "RU": "Забронировать столик", "HU": "Asztalfoglalás", "CS": "Rezervovat stůl", "SK": "Rezervovať stôl", "SL": "Rezerviraj mizo", "UA": "Забронювати столик", "RO": "Rezervă o masă"}, "online_booking": {"HR": "Online rezervacija →", "EN": "Online booking →", "DE": "Online-Reservierung →", "IT": "Prenotazione online →", "FR": "Réservation en ligne →", "ES": "Reserva online →", "PT": "Reserva online →", "NL": "Online reserveren →", "PL": "Rezerwacja online →", "RU": "Онлайн-бронирование →", "HU": "Online foglalás →", "CS": "Online rezervace →", "SK": "Online rezervácia →", "SL": "Spletna rezervacija →", "UA": "Онлайн-бронювання →", "RO": "Rezervare online →"}, "gm_score": {"HR": "12,5 kapica", "EN": "12.5 toques", "DE": "12,5 Hauben", "IT": "12,5 cappelli", "FR": "12,5 toques", "ES": "12,5 gorros", "PT": "12,5 chapéus", "NL": "12,5 koksmutsen", "PL": "12,5 czapek", "RU": "12,5 колпаков", "HU": "12,5 szakácssapka", "CS": "12,5 čepic", "SK": "12,5 čapíc", "SL": "12,5 kap", "UA": "12,5 ковпаків", "RO": "12,5 bonete"}, "wifi_network": {"HR": "WiFi mreža", "EN": "WiFi network", "DE": "WLAN-Netzwerk", "IT": "Rete WiFi", "FR": "Réseau WiFi", "ES": "Red WiFi", "PT": "Rede WiFi", "NL": "WiFi-netwerk", "PL": "Sieć WiFi", "RU": "Сеть WiFi", "HU": "WiFi hálózat", "CS": "Síť WiFi", "SK": "Sieť WiFi", "SL": "Omrežje WiFi", "UA": "Мережа WiFi", "RO": "Rețea WiFi"}, "wifi_password": {"HR": "Lozinka", "EN": "Password", "DE": "Passwort", "IT": "Password", "FR": "Mot de passe", "ES": "Contraseña", "PT": "Palavra-passe", "NL": "Wachtwoord", "PL": "Hasło", "RU": "Пароль", "HU": "Jelszó", "CS": "Heslo", "SK": "Heslo", "SL": "Geslo", "UA": "Пароль", "RO": "Parolă"}, "parking_note": {"HR": "~5 min hoda, izvan centra", "EN": "~5 min walk, outside the centre", "DE": "~5 Min. zu Fuß, außerhalb des Zentrums", "IT": "~5 min a piedi, fuori dal centro", "FR": "~5 min à pied, hors du centre", "ES": "~5 min a pie, fuera del centro", "PT": "~5 min a pé, fora do centro", "NL": "~5 min lopen, buiten het centrum", "PL": "~5 min pieszo, poza centrum", "RU": "~5 мин пешком, за пределами центра", "HU": "~5 perc séta, a központon kívül", "CS": "~5 min chůze, mimo centrum", "SK": "~5 min chôdze, mimo centra", "SL": "~5 min hoje, izven središča", "UA": "~5 хв пішки, за межами центру", "RO": "~5 min de mers, în afara centrului"}, "tab_food": {"HR": "Jelovnik", "EN": "Food menu", "DE": "Speisen", "IT": "Piatti", "FR": "Plats", "ES": "Platos", "PT": "Pratos", "NL": "Gerechten", "PL": "Dania", "RU": "Блюда", "HU": "Ételek", "CS": "Jídla", "SK": "Jedlá", "SL": "Jedi", "UA": "Страви", "RO": "Mâncăruri"}, "tab_drinks": {"HR": "Pića", "EN": "Drinks", "DE": "Getränke", "IT": "Bevande", "FR": "Boissons", "ES": "Bebidas", "PT": "Bebidas", "NL": "Dranken", "PL": "Napoje", "RU": "Напитки", "HU": "Italok", "CS": "Nápoje", "SK": "Nápoje", "SL": "Pijače", "UA": "Напої", "RO": "Băuturi"}, "tab_wine": {"HR": "Vino", "EN": "Wine", "DE": "Wein", "IT": "Vino", "FR": "Vin", "ES": "Vino", "PT": "Vinho", "NL": "Wijn", "PL": "Wino", "RU": "Вино", "HU": "Bor", "CS": "Víno", "SK": "Víno", "SL": "Vino", "UA": "Вино", "RO": "Vin"}, "tab_desserts": {"HR": "Deserti", "EN": "Desserts", "DE": "Desserts", "IT": "Dolci", "FR": "Desserts", "ES": "Postres", "PT": "Sobremesas", "NL": "Desserts", "PL": "Desery", "RU": "Десерты", "HU": "Desszertek", "CS": "Dezerty", "SK": "Dezerty", "SL": "Sladice", "UA": "Десерти", "RO": "Deserturi"}, "wine_pair": {"HR": "Preporučeno vino", "EN": "Recommended wine", "DE": "Weinempfehlung", "IT": "Vino consigliato", "FR": "Vin recommandé", "ES": "Vino recomendado", "PT": "Vinho recomendado", "NL": "Aanbevolen wijn", "PL": "Polecane wino", "RU": "Рекомендуемое вино", "HU": "Ajánlott bor", "CS": "Doporučené víno", "SK": "Odporúčané víno", "SL": "Priporočeno vino", "UA": "Рекомендоване вино", "RO": "Vin recomandat"}, "al_note": {"HR": "Za detalje o alergenima u pojedinim jelima, molimo obratite se osoblju.", "EN": "For details about allergens in individual dishes, please ask our staff.", "DE": "Für Details zu Allergenen in einzelnen Gerichten wenden Sie sich bitte an unser Personal.", "IT": "Per informazioni sugli allergeni nei singoli piatti, rivolgersi al personale.", "FR": "Pour plus de détails sur les allergènes de chaque plat, veuillez vous adresser au personnel.", "ES": "Para más información sobre los alérgenos de cada plato, consulte a nuestro personal.", "PT": "Para detalhes sobre os alergénios de cada prato, fale com os nossos funcionários.", "NL": "Voor informatie over allergenen in afzonderlijke gerechten kunt u ons personeel raadplegen.", "PL": "Szczegółowe informacje o alergenach w poszczególnych daniach uzyska Pan/Pani u obsługi.", "RU": "Подробности об аллергенах в отдельных блюдах уточняйте у персонала.", "HU": "Az egyes ételek allergénjeiről kérdezze munkatársainkat.", "CS": "Podrobnosti o alergenech v jednotlivých jídlech vám sdělí obsluha.", "SK": "Podrobnosti o alergénoch v jednotlivých jedlách vám poskytne obsluha.", "SL": "Za podrobnosti o alergenih v posameznih jedeh vprašajte osebje.", "UA": "Докладніше про алергени в окремих стравах запитуйте в персоналу.", "RO": "Pentru detalii despre alergenii din fiecare preparat, vă rugăm să întrebați personalul."}, "about": {"HR": "Deveron nosi ime po jedrenjaku izgrađenom u Velikoj Britaniji za lošinjsku obitelj Cosulich — uvijek s kapetanima iz Lošinja za kormilom. Svaki detalj u kuhinji i za stolom radimo s istom pažnjom kojom su kapetani plovili daleka mora.", "EN": "Deveron is named after a sailing ship built in Great Britain for the Cosulich family of Lošinj — always with captains from Lošinj at the helm. We prepare every detail in the kitchen and at the table with the same care with which those captains sailed distant seas.", "DE": "Deveron ist nach einem Segelschiff benannt, das in Großbritannien für die Lošinjer Familie Cosulich gebaut wurde – stets mit Kapitänen aus Lošinj am Steuer. Jedes Detail in der Küche und am Tisch gestalten wir mit derselben Sorgfalt, mit der diese Kapitäne ferne Meere befuhren.", "IT": "Deveron prende il nome da un veliero costruito in Gran Bretagna per la famiglia Cosulich di Lussino, sempre con capitani lussignani al timone. Curiamo ogni dettaglio in cucina e a tavola con la stessa attenzione con cui quei capitani solcavano mari lontani.", "FR": "Deveron doit son nom à un voilier construit en Grande-Bretagne pour la famille Cosulich de Lošinj — toujours avec des capitaines de Lošinj à la barre. Nous soignons chaque détail en cuisine et à table avec le même soin que ces capitaines naviguant sur des mers lointaines.", "ES": "Deveron lleva el nombre de un velero construido en Gran Bretaña para la familia Cosulich de Lošinj, siempre con capitanes de Lošinj al timón. Cuidamos cada detalle en la cocina y en la mesa con el mismo esmero con el que aquellos capitanes navegaban mares lejanos.", "PT": "Deveron deve o nome a um veleiro construído na Grã-Bretanha para a família Cosulich, de Lošinj — sempre com capitães de Lošinj ao leme. Cuidamos de cada detalhe na cozinha e à mesa com o mesmo cuidado com que esses capitães navegavam mares distantes.", "NL": "Deveron is vernoemd naar een zeilschip dat in Groot-Brittannië werd gebouwd voor de familie Cosulich uit Lošinj — altijd met kapiteins uit Lošinj aan het roer. Elk detail in de keuken en aan tafel verzorgen we met dezelfde zorg waarmee die kapiteins verre zeeën bevoeren.", "PL": "Deveron zawdzięcza nazwę żaglowcowi zbudowanemu w Wielkiej Brytanii dla rodziny Cosulich z Lošinja — zawsze z kapitanami z Lošinja za sterem. Każdy szczegół w kuchni i przy stole dopracowujemy z tą samą starannością, z jaką ci kapitanowie żeglowali po dalekich morzach.", "RU": "Deveron назван в честь парусника, построенного в Великобритании для лошиньской семьи Козулич, — всегда с капитанами из Лошиня у штурвала. Каждую деталь на кухне и за столом мы продумываем с той же заботой, с какой эти капитаны бороздили далёкие моря.", "HU": "A Deveron nevét egy vitorláshajóról kapta, amelyet Nagy-Britanniában építettek a lošinji Cosulich család számára – mindig lošinji kapitányokkal a kormánynál. A konyhában és az asztalnál minden részletre ugyanazzal a gondossággal figyelünk, amellyel e kapitányok a távoli tengereket járták.", "CS": "Deveron nese jméno plachetnice postavené ve Velké Británii pro lošinjskou rodinu Cosulich – vždy s kapitány z Lošinje u kormidla. Každý detail v kuchyni i u stolu připravujeme se stejnou péčí, s jakou tito kapitáni brázdili vzdálená moře.", "SK": "Deveron nesie meno plachetnice postavenej vo Veľkej Británii pre lošinjskú rodinu Cosulich – vždy s kapitánmi z Lošinja za kormidlom. Každý detail v kuchyni aj pri stole pripravujeme s rovnakou starostlivosťou, s akou títo kapitáni brázdili vzdialené moria.", "SL": "Deveron nosi ime po jadrnici, zgrajeni v Veliki Britaniji za lošinjsko družino Cosulich – vedno s kapitani iz Lošinja za krmilom. Vsako podrobnost v kuhinji in za mizo pripravimo z enako skrbnostjo, s kakršno so ti kapitani pluli po daljnih morjih.", "UA": "Deveron названо на честь вітрильника, збудованого у Великій Британії для лошинської родини Козулич, — завжди з капітанами з Лошиня за штурвалом. Кожну деталь на кухні та за столом ми продумуємо з тією ж турботою, з якою ці капітани борознили далекі моря.", "RO": "Deveron poartă numele unui velier construit în Marea Britanie pentru familia Cosulich din Lošinj — mereu cu căpitani din Lošinj la cârmă. Pregătim fiecare detaliu în bucătărie și la masă cu aceeași grijă cu care acei căpitani navigau pe mări îndepărtate."}, "about_hl": {"HR": "Lošinjskim jedrima oko svijeta 🚢", "EN": "Around the world under Lošinj sails 🚢", "DE": "Mit Lošinjer Segeln um die Welt 🚢", "IT": "Intorno al mondo con le vele di Lussino 🚢", "FR": "Autour du monde sous les voiles de Lošinj 🚢", "ES": "Alrededor del mundo con velas de Lošinj 🚢", "PT": "À volta do mundo com velas de Lošinj 🚢", "NL": "Met Lošinjse zeilen de wereld rond 🚢", "PL": "Dookoła świata pod żaglami z Lošinja 🚢", "RU": "Вокруг света под парусами Лошиня 🚢", "HU": "Lošinji vitorlákkal a világ körül 🚢", "CS": "Kolem světa pod lošinjskými plachtami 🚢", "SK": "Okolo sveta pod lošinjskými plachtami 🚢", "SL": "Z lošinjskimi jadri okoli sveta 🚢", "UA": "Навколо світу під вітрилами Лошиня 🚢", "RO": "În jurul lumii cu pânzele din Lošinj 🚢"}};
+Object.assign(UI, UI_EXTRA);
+// Allergen names per language, index 0 = allergen 1
+const AL_I18N = {"HR": ["Žitarice (gluten)", "Rakovi", "Jaja", "Riba", "Kikiriki", "Soja", "Mlijeko (laktoza)", "Orašasti plodovi", "Celer", "Gorušica", "Sezam", "Sulfiti", "Vučika", "Mekušci"], "EN": ["Cereals (gluten)", "Crustaceans", "Eggs", "Fish", "Peanuts", "Soy", "Milk (lactose)", "Nuts", "Celery", "Mustard", "Sesame", "Sulphites", "Lupin", "Molluscs"], "DE": ["Getreide (Gluten)", "Krebstiere", "Eier", "Fisch", "Erdnüsse", "Soja", "Milch (Laktose)", "Schalenfrüchte", "Sellerie", "Senf", "Sesam", "Sulfite", "Lupinen", "Weichtiere"], "IT": ["Cereali (glutine)", "Crostacei", "Uova", "Pesce", "Arachidi", "Soia", "Latte (lattosio)", "Frutta a guscio", "Sedano", "Senape", "Sesamo", "Solfiti", "Lupini", "Molluschi"], "FR": ["Céréales (gluten)", "Crustacés", "Œufs", "Poisson", "Arachides", "Soja", "Lait (lactose)", "Fruits à coque", "Céleri", "Moutarde", "Sésame", "Sulfites", "Lupin", "Mollusques"], "ES": ["Cereales (gluten)", "Crustáceos", "Huevos", "Pescado", "Cacahuetes", "Soja", "Leche (lactosa)", "Frutos de cáscara", "Apio", "Mostaza", "Sésamo", "Sulfitos", "Altramuces", "Moluscos"], "PT": ["Cereais (glúten)", "Crustáceos", "Ovos", "Peixe", "Amendoins", "Soja", "Leite (lactose)", "Frutos de casca rija", "Aipo", "Mostarda", "Sésamo", "Sulfitos", "Tremoço", "Moluscos"], "NL": ["Granen (gluten)", "Schaaldieren", "Eieren", "Vis", "Pinda's", "Soja", "Melk (lactose)", "Noten", "Selderij", "Mosterd", "Sesam", "Sulfiet", "Lupine", "Weekdieren"], "PL": ["Zboża (gluten)", "Skorupiaki", "Jaja", "Ryby", "Orzeszki ziemne", "Soja", "Mleko (laktoza)", "Orzechy", "Seler", "Gorczyca", "Sezam", "Siarczyny", "Łubin", "Mięczaki"], "RU": ["Злаки (глютен)", "Ракообразные", "Яйца", "Рыба", "Арахис", "Соя", "Молоко (лактоза)", "Орехи", "Сельдерей", "Горчица", "Кунжут", "Сульфиты", "Люпин", "Моллюски"], "HU": ["Gabonafélék (glutén)", "Rákfélék", "Tojás", "Hal", "Földimogyoró", "Szója", "Tej (laktóz)", "Diófélék", "Zeller", "Mustár", "Szezám", "Szulfitok", "Csillagfürt", "Puhatestűek"], "CS": ["Obiloviny (lepek)", "Korýši", "Vejce", "Ryby", "Arašídy", "Sója", "Mléko (laktóza)", "Skořápkové plody", "Celer", "Hořčice", "Sezam", "Siřičitany", "Vlčí bob", "Měkkýši"], "SK": ["Obilniny (lepok)", "Kôrovce", "Vajcia", "Ryby", "Arašidy", "Sója", "Mlieko (laktóza)", "Orechy", "Zeler", "Horčica", "Sezam", "Siričitany", "Vlčí bôb", "Mäkkýše"], "SL": ["Žita (gluten)", "Raki", "Jajca", "Ribe", "Arašidi", "Soja", "Mleko (laktoza)", "Oreščki", "Zelena", "Gorčično seme", "Sezam", "Sulfiti", "Volčji bob", "Mehkužci"], "UA": ["Злаки (глютен)", "Ракоподібні", "Яйця", "Риба", "Арахіс", "Соя", "Молоко (лактоза)", "Горіхи", "Селера", "Гірчиця", "Кунжут", "Сульфіти", "Люпин", "Молюски"], "RO": ["Cereale (gluten)", "Crustacee", "Ouă", "Pește", "Arahide", "Soia", "Lapte (lactoză)", "Fructe cu coajă", "Țelină", "Muștar", "Susan", "Sulfiți", "Lupin", "Moluște"]};
+const t=key=>(UI[key]&&(UI[key][currentLang]||UI[key].HR))||key;
+const alName=id=>(AL_I18N[currentLang]||AL_I18N.HR)[id-1];
 
 const AL_DATA = [
   {id:'1',hr:'ŽITARICE (GLUTEN)',en:'CEREALS (GLUTEN)'},
@@ -541,13 +577,14 @@ function applyUI(lang){
   document.getElementById('cur-lang-btn').innerHTML=flag+' '+lang;
   const s=(id,key)=>{const e=document.getElementById(id);if(e&&UI[key])e.textContent=UI[key][lang]||UI[key]['HR'];};
   s('nl-home','home');s('nl-menu','menu');s('nl-al','allergens');s('nl-res','reserve');s('nl-ai','ai_chat');
-  s('qa-res','reserve');s('qa-menu','menu');s('qa-al','allergens');s('qa-call','call');
+s('qa-menu','menu');s('qa-al','allergens');s('qa-call','call');
   s('ic-hours','hours');s('ic-call','call');
   s('info-hours','hours');s('info-parking','parking');s('info-call','call');
   s('al-page-title','allergens');s('safe-lbl','show_safe');s('ai-title','ai_chat');
   s('fal-lbl','filter_al');
   s('tab-spec-lbl','specials');s('tab-dor-lbl','breakfast');
   s('gm-link-home','gault');s('gm-link-info','gault');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.dataset.i18n;if(UI[k])e.textContent=UI[k][lang]||UI[k].HR;});
   const allBtn=document.getElementById('btn-all');
   if(allBtn)allBtn.textContent=UI.all_cats&&UI.all_cats[lang]||'Sve';
   document.documentElement.lang=lang==='UA'?'uk':lang.toLowerCase();
@@ -568,7 +605,7 @@ function renderJelovnik(lang){
       const o=item['o_'+lang]||'';
       const al=item.al?item.al.split(',').map(x=>x.trim()).filter(Boolean):[];
       const prem=/tartuf|caviar|kavij/i.test(n)?'<span class="spec-badge">⭐ Premium</span>':'';
-      const alHtml=al.length?`<div class="item-al">${al.map(x=>`<span class="al-tag" title="${AL_NAMES[x]||x}">${AL_ICONS[x]||'⚠'} ${x}</span>`).join('')}</div>`:'';
+      const alHtml=al.length?`<div class="item-al">${al.map(x=>`<span class="al-tag" title="${alName(+x)||x}">${AL_ICONS[x]||'⚠'} ${x}</span>`).join('')}</div>`:'';
       html+=`<div class="menu-item" data-cat="${cat}" data-al="${al.join(',')}">
         <div class="mi-info"><div class="mi-name">${n}${prem}</div>${o?`<div class="mi-desc">${o}</div>`:''}</div>
         ${priceHtml(item)}
@@ -591,7 +628,7 @@ function renderJelovnik(lang){
 
   // Allergen filter btns
   document.getElementById('al-btns').innerHTML=AL_DATA.map(a=>
-    `<button class="fbtn${blockedAl.has(a.id)?' al-on':''}" onclick="toggleAl('${a.id}',this)" title="${a.hr}">${AL_ICONS[a.id]} ${a.id}</button>`
+    `<button class="fbtn${blockedAl.has(a.id)?' al-on':''}" onclick="toggleAl('${a.id}',this)" title="${alName(+a.id)}">${AL_ICONS[a.id]} ${a.id}</button>`
   ).join('');
 
   applyFilters();
@@ -620,16 +657,16 @@ function applyFilters(){
     item.classList.toggle('hidden',!catOk||( safe&&hasBlocked));
   });
   document.querySelectorAll('#jelo-content .menu-cat').forEach(cat=>{
-    cat.style.display=cat.querySelectorAll('.menu-item:not(.hidden)').length?'block':'none';
+    cat.style.display=cat.querySelectorAll('.menu-item:not(.hidden)').length?'':'none';
   });
 }
 
 // Render specijaliteti
 function renderSpec(){
-  let html=`<div class="menu-cat"><h3 class="cat-title">⭐ Specijaliteti / Chef's Specials</h3>`;
+  let html=`<div class="menu-cat"><h3 class="cat-title">⭐ ${t('specials')}</h3>`;
   for(const s of SPECS_DATA){
     const wine=Object.entries(WINE_PAIRS).find(([k])=>s.n.startsWith(k));
-    const wineHtml=wine?`<div class="wine-pair">🍷 Preporučeno vino: ${wine[1]}</div>`:'';
+    const wineHtml=wine?`<div class="wine-pair">🍷 ${t('wine_pair')}: ${wine[1]}</div>`:'';
     html+=`<div class="menu-item"><div class="mi-info"><div class="mi-name">${s.n}</div>${wineHtml}</div>${priceHtml(s)}</div>`;
   }
   document.getElementById('spec-content').innerHTML=html+'</div>';
@@ -676,7 +713,7 @@ function renderVino(){
 
 // Render deserti
 function renderDeserti(){
-  let html='<div class="menu-cat"><h3 class="cat-title">🍰 Deserti / Desserts</h3>';
+  let html=`<div class="menu-cat"><h3 class="cat-title">🍰 ${t('tab_desserts')}</h3>`;
   for(const i of DESERT_DATA) html+=`<div class="menu-item"><div class="mi-info"><div class="mi-name">${i.n}</div></div>${priceHtml(i)}</div>`;
   document.getElementById('desert-content').innerHTML=html+'</div>';
 }
@@ -684,7 +721,7 @@ function renderDeserti(){
 // Render alergeni
 function renderAlergeni(){
   document.getElementById('al-grid').innerHTML=AL_DATA.map(a=>
-    `<div class="al-item"><span class="al-ico">${AL_ICONS[a.id]}</span><div><div class="al-num">${a.id}</div><div class="al-hr">${a.hr}</div><div class="al-en">${a.en}</div></div></div>`
+    `<div class="al-item"><span class="al-ico">${AL_ICONS[a.id]}</span><div><div class="al-num">${a.id}</div><div class="al-hr">${alName(+a.id)}</div>${currentLang!=='HR'?`<div class="al-en">${AL_I18N.HR[a.id-1]}</div>`:''}</div></div>`
   ).join('');
 }
 
