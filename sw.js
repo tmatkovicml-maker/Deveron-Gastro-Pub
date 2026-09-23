@@ -1,8 +1,8 @@
 // Offline support: the menu keeps working on a weak or missing connection.
 // Pages (HTML) are fetched from the network first so updates show up at once;
 // everything else is served from the cache and refreshed in the background.
-const CACHE = 'deveron-v1';
-const CORE = ['./', 'index.html', 'logo.png', 'manifest.json', 'favicon.png', 'icon-192.png'];
+const CACHE = 'deveron-v2';
+const CORE = ['./', 'index.html', 'menu.csv', 'logo.png', 'manifest.json', 'favicon.png', 'icon-192.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
