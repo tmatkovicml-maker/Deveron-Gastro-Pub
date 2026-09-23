@@ -714,9 +714,11 @@ function showLangPicker(){ document.getElementById('lang-overlay').style.display
 function hideLangPicker(){ document.getElementById('lang-overlay').style.display='none'; }
 
 // AI Chat
-// Server-side proxy (api/chat.php) holds the API key, model and system prompt;
-// the browser only sends the conversation.
-const AI_ENDPOINT='api/chat.php';
+// URL of a server-side proxy that holds the API key, model and system prompt and
+// forwards the conversation to the Claude API. GitHub Pages only serves static
+// files, so the proxy must live elsewhere; while this is empty the AI tab is hidden.
+const AI_ENDPOINT='';
+if(!AI_ENDPOINT) document.getElementById('nav-ai').style.display='none';
 
 async function sendChat(){
   const inp=document.getElementById('chat-input');
