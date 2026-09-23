@@ -691,10 +691,9 @@ function showLangPicker(){ document.getElementById('lang-overlay').style.display
 function hideLangPicker(){ document.getElementById('lang-overlay').style.display='none'; }
 
 // AI Chat
-// The Anthropic API cannot be called directly from the browser (it needs a secret
-// API key, which must never be shipped to clients). Point this at a small server-side
-// proxy that adds the key and model and forwards the request to /v1/messages.
-const AI_ENDPOINT='/api/chat';
+// Server-side proxy (api/chat.php) holds the API key, model and system prompt;
+// the browser only sends the conversation.
+const AI_ENDPOINT='api/chat.php';
 
 async function sendChat(){
   const inp=document.getElementById('chat-input');
@@ -705,23 +704,15 @@ async function sendChat(){
   const btn=document.getElementById('chat-btn');
   btn.disabled=true;
 
-  const sys=`Ti si ljubazni AI asistent restorana Deveron Gastro Pub u Malom Lošinju, Hrvatska.
-Restoran je poznat po svježoj ribi, plodovima mora, tartufima i mediteranskoj kuhinji. Ocijenjen je s 12,5 kapica u Gault Millau vodiču.
-Radno vrijeme: 08:00-24:00, kuhinja 08:00-22:00, od 15.06. do 23.09.
-WiFi: mreža deveronpub, lozinka deveronpub2019.
-Rezervacije: https://deveron-gastro-pub-1683645478.resos.com/booking
-Preporučena vina uz ribu: Malvazija Kozlović, Matuško Grk, Maestoso Sur Lie.
-Odgovaraj kratko, prijateljski, na jeziku korisnika. Max 3 rečenice.`;
-
   chatHistory.push({role:'user',content:msg});
   try{
     const resp=await fetch(AI_ENDPOINT,{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({max_tokens:300,system:sys,messages:chatHistory.slice(-6)})
+      body:JSON.stringify({messages:chatHistory.slice(-6)})
     });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data=await resp.json();
-    const reply=data.content&&data.content[0]&&data.content[0].text;
+    const reply=data.reply;
     if(!reply) throw new Error('Empty reply');
     chatHistory.push({role:'assistant',content:reply});
     appendMsg('ai',reply);
