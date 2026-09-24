@@ -116,6 +116,7 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
 .qa-label{font-family:"Cinzel",serif;font-size:.63rem;letter-spacing:.1em;color:var(--gold);}
 .qa-desc{font-size:.83rem;color:var(--cream-dim);margin-top:.1rem;}
 .qa-full{grid-column:1/-1;}
+.qa-btn[hidden]{display:none;}
 .ic-grid{padding:.8rem 1rem 0;display:grid;grid-template-columns:1fr 1fr;gap:.6rem;max-width:520px;margin:0 auto;}
 .ic{background:rgba(17,34,64,.75);border:1px solid var(--gold-dim);border-radius:10px;padding:.88rem;text-align:center;cursor:pointer;transition:all .2s;}
 .ic:hover{border-color:var(--gold);}
@@ -1075,6 +1076,8 @@ const TABLE=(()=>{
 })();
 // Takeaway: guests without a table QR code can order for pickup (08:00–21:30, not 25.12.)
 let MODE=TABLE?'table':(()=>{try{return localStorage.getItem('deveron-mode')==='takeaway'?'takeaway':null;}catch(e){return null;}})();
+// Takeaway can be paused from the admin page; hidden until the Worker confirms it is on
+let TAKEAWAY_ON=false;
 const ORDER_KEY=TABLE?'deveron-order-'+TABLE:'deveron-order-van', ORDER_TTL=4*3600*1000;
 const canAdd=i=>MODE==='table'||(MODE==='takeaway'&&i.takeaway);
 function takeawayOpenNow(){
@@ -1121,7 +1124,7 @@ function changeQty(k,d){
 function clearOrder(){ORDER={lines:{},note:'',ts:Date.now()};document.getElementById('order-note').value='';saveOrder();renderOrder();updateOrderBar();}
 function updateOrderBar(){
   const bar=document.getElementById('order-bar');
-  if(!TABLE&&!ORDER_API){bar.hidden=true;return;}
+  if(!TABLE&&(!ORDER_API||!TAKEAWAY_ON)){bar.hidden=true;document.body.classList.remove('has-order');return;}
   bar.hidden=false; document.body.classList.add('has-order');
   const list=orderItems(), n=list.reduce((a,x)=>a+x.qty,0);
   bar.classList.toggle('idle',!MODE);
@@ -1280,6 +1283,7 @@ async function sendTakeaway(){
     showTkStatus(); pollTk(); checkLoyalty();
   }else{
     msg.textContent=t(status===429?'too_many':status===403?'takeaway_closed':'send_failed');
+    if(status===403){TAKEAWAY_ON=false;}
     msg.className='order-msg err'; msg.hidden=false;
   }
 }
@@ -1313,7 +1317,14 @@ function waiterDone(){clearOrder();closeOrder();}
 function hideWaiter(){document.getElementById('waiter-view').hidden=true;document.getElementById('order-edit').hidden=false;}
 loadOrder();
 if(ORDER_API){document.getElementById('send-btn').hidden=false;document.body.classList.add('can-send');}
-if(!TABLE&&ORDER_API) document.getElementById('qa-takeaway').hidden=false;
+if(!TABLE&&ORDER_API){
+  fetch(ORDER_API.replace(/\/$/,'')+'/api/status').then(r=>r.json()).then(d=>{
+    TAKEAWAY_ON=!!d.takeaway;
+    document.getElementById('qa-takeaway').hidden=!TAKEAWAY_ON;
+    if(!TAKEAWAY_ON&&MODE==='takeaway'){MODE=null;document.body.classList.remove('takeaway');if(document.getElementById('app').style.display==='block')renderAll();}
+    updateOrderBar();
+  }).catch(()=>{});
+}
 if(MODE==='takeaway') document.body.classList.add('takeaway');
 document.querySelectorAll('.o-table').forEach(e=>e.textContent=TABLE||'');
 updateOrderBar();

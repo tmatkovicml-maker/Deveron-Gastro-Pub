@@ -22,15 +22,17 @@ Otvoriti adresu Workera u pregledniku tableta, upisati `WAITER_PIN` i dodirnuti 
 `https://deveron-gastro-pub.t-matkovicml.workers.dev/admin` → `ADMIN_PIN` ili `OWNER_PIN`.
 - **Narudžbe**: sve narudžbe za stolom i za van po razdoblju (danas, jučer, 7/30 dana, mjesec, od–do), zbrojevi, najprodavanije, izvoz u CSV.
 - **Loyalty kartice**: anonimni kodovi, potrošnja, popust, brisanje.
+- **Narudžbe za van na webu**: prekidač Pauziraj / Uključi (zadano pauzirano). Dok je pauzirano, gumb „Naruči za van" je skriven, a Worker odbija narudžbe za van.
 
 ## API
 - `POST /api/order` – narudžba sa stola (samo s deveronpub.com; najviše 5 po stolu u 10 min)
 - `POST /api/takeaway` – narudžba za van (08:00–21:30, ne 25.12.; najviše 3 po mobitelu na sat)
 - `GET /api/takeaway/:id?token=` – stanje narudžbe za van (`new`, `accepted`, `rejected`, `done`)
 - `GET /api/loyalty?card=` – popust i potrošnja loyalty kartice
+- `GET /api/status` – jesu li narudžbe za van uključene
 - `GET /api/orders` – otvorene narudžbe (zaglavlje `X-Waiter-Pin`)
 - `POST /api/orders/:id/done`, `POST /api/takeaway/:id/accept|reject|done` (zaglavlje `X-Waiter-Pin`)
-- `GET /api/admin/orders?from=&to=`, `GET /api/admin/cards`, `DELETE /api/admin/cards/:code` (zaglavlje `X-Admin-Pin`)
+- `GET /api/admin/orders?from=&to=`, `GET /api/admin/cards`, `DELETE /api/admin/cards/:code`, `GET|POST /api/admin/settings` (zaglavlje `X-Admin-Pin`)
 
 Čuvanje: narudžbe (stol i za van) godinu dana; ime i mobitel gosta za van 7 dana; loyalty kartice 2 godine od zadnjeg korištenja. Tablet prikazuje samo otvorene narudžbe iz zadnja 24 sata.
 Lokalno testiranje: `npx wrangler dev` uz datoteku `.dev.vars` (npr. `WAITER_PIN=1234`, `ADMIN_PIN=9999`, `OWNER_PIN=8888`).

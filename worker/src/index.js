@@ -5,6 +5,7 @@
 //   POST /api/takeaway                 takeaway order (name, phone, pickup time, optional loyalty card)
 //   GET  /api/takeaway/:id?token=…     {state: new|accepted|rejected|done, ready_at}
 //   GET  /api/loyalty?card=DEV-XXXX-XXXX  discount and spend of a loyalty card
+//   GET  /api/status                   {takeaway: true|false} – takeaway paused or not
 // Waiter tablet (X-Waiter-Pin = WAITER_PIN):
 //   GET  /api/orders                   open table and takeaway orders
 //   POST /api/orders/:id/done          table order entered in the till
@@ -15,6 +16,7 @@
 //   GET  /api/admin/orders?from=&to=   all table and takeaway orders in a period
 //   GET  /api/admin/cards              loyalty cards
 //   DELETE /api/admin/cards/:code
+//   POST /api/admin/settings           {takeaway: true|false} – pause / resume takeaway orders
 // Pages: /  waiter tablet · /admin  orders and loyalty cards
 //
 // Loyalty is anonymous: a card is only a random code kept on the guest's phone plus the
@@ -99,6 +101,9 @@ export class Orders extends DurableObject {
       name TEXT, phone TEXT, pickup TEXT, lang TEXT, note TEXT, lines TEXT NOT NULL,
       total TEXT, discount INTEGER NOT NULL DEFAULT 0, card TEXT,
       status TEXT NOT NULL DEFAULT 'new', ready_at INTEGER, closed INTEGER)`);
+    // Settings changed from the admin page; takeaway starts paused until switched on
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
+    this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0')");
     this.sql.exec(`CREATE TABLE IF NOT EXISTS cards (
       code TEXT PRIMARY KEY, spent REAL NOT NULL DEFAULT 0, orders INTEGER NOT NULL DEFAULT 0,
       created INTEGER NOT NULL, last_used INTEGER)`);
@@ -132,6 +137,19 @@ export class Orders extends DurableObject {
     return { id: row.id };
   }
 
+  takeawayEnabled() {
+    return this.sql.exec("SELECT v FROM settings WHERE k = 'takeaway'").one().v === '1';
+  }
+
+  status() {
+    return { takeaway: this.takeawayEnabled() };
+  }
+
+  setSettings(s) {
+    if (typeof s.takeaway === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'takeaway'", s.takeaway ? '1' : '0');
+    return this.status();
+  }
+
   card(code) {
     return code ? this.sql.exec('SELECT * FROM cards WHERE code = ?', code).toArray()[0] || null : null;
   }
@@ -143,6 +161,7 @@ export class Orders extends DurableObject {
   }
 
   addTakeaway(o, ip) {
+    if (!this.takeawayEnabled()) return { error: 'paused', status: 403 };
     const now = Date.now();
     this.cleanup(now);
     // Max 3 takeaway orders per phone per hour and 20 per connection per 10 minutes
@@ -333,6 +352,10 @@ export default {
       return json(res, res.status || 200, { ...c, 'Cache-Control': 'no-store' });
     }
 
+    if (path === '/api/status' && request.method === 'GET') {
+      return json(await store.status(), 200, { ...c, 'Cache-Control': 'no-store' });
+    }
+
     if (path === '/api/loyalty' && request.method === 'GET') {
       const code = normCard(url.searchParams.get('card'));
       return json(code ? await store.loyalty(code) : { valid: false }, 200, { ...c, 'Cache-Control': 'no-store' });
@@ -373,6 +396,14 @@ export default {
         const to = parseInt(url.searchParams.get('to'), 10) || Date.now() + DAY;
         const from = parseInt(url.searchParams.get('from'), 10) || to - 7 * DAY;
         return json({ ...(await store.history(from, to)), now: Date.now() });
+      }
+      if (path === '/api/admin/settings' && request.method === 'POST') {
+        let body = {};
+        try { body = await request.json(); } catch {}
+        return json(await store.setSettings(body));
+      }
+      if (path === '/api/admin/settings' && request.method === 'GET') {
+        return json(await store.status());
       }
       if (path === '/api/admin/cards' && request.method === 'GET') {
         return json({ cards: await store.cards(), tiers: tiers(env) });
