@@ -5,6 +5,8 @@
 name = "deveron-gastro-pub"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
+# Keep variables set in the dashboard (e.g. WAITER_PIN) when Cloudflare redeploys from GitHub
+keep_vars = true
 
 [[durable_objects.bindings]]
 name = "ORDERS"

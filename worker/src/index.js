@@ -82,9 +82,11 @@ function validOrder(body) {
   return { table, lines, note: str(body.note, 300), lang: str(body.lang, 4), total: str(body.total, 20) };
 }
 
-function pinOk(request, env) {
-  const pin = request.headers.get('X-Waiter-Pin') || '';
-  return !!env.WAITER_PIN && pin === env.WAITER_PIN;
+// null = PIN matches; otherwise the error to return
+function pinError(request, env) {
+  const expected = String(env.WAITER_PIN || '').trim();
+  if (!expected) return 'no_pin';
+  return (request.headers.get('X-Waiter-Pin') || '').trim() === expected ? null : 'pin';
 }
 
 export default {
@@ -105,13 +107,15 @@ export default {
     }
 
     if (url.pathname === '/api/orders' && request.method === 'GET') {
-      if (!pinOk(request, env)) return json({ error: 'pin' }, 401);
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
       return json({ orders: await store.list(), now: Date.now() });
     }
 
     const m = url.pathname.match(/^\/api\/orders\/(\d+)\/done$/);
     if (m && request.method === 'POST') {
-      if (!pinOk(request, env)) return json({ error: 'pin' }, 401);
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
       return json(await store.done(parseInt(m[1], 10)));
     }
 
