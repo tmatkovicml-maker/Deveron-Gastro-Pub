@@ -79,7 +79,9 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
 
 /* TOP BAR */
 .top-bar{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(7,16,31,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--gold-dim);padding:.68rem 1rem;display:flex;align-items:center;justify-content:space-between;}
-.top-logo{font-family:"Cinzel",serif;font-size:.98rem;letter-spacing:.15em;color:var(--gold);}
+.top-logo{font-family:"Cinzel",serif;font-size:.98rem;letter-spacing:.15em;color:var(--gold);display:flex;align-items:center;gap:.5rem;}
+.top-logo img{height:26px;width:auto;}
+.chat-av img{width:26px;height:auto;display:block;}
 .top-lang-btn{background:none;border:1px solid rgba(201,168,76,.4);border-radius:4px;padding:.3rem .65rem;cursor:pointer;font-size:.95rem;color:var(--cream);transition:all .2s;display:flex;align-items:center;gap:.3rem;}
 .top-lang-btn:hover{border-color:var(--gold);color:var(--gold);}
 
@@ -383,7 +385,7 @@ body.takeaway .o-show{display:none;}
 <!-- APP -->
 <div id="app">
   <div class="top-bar">
-    <div class="top-logo">⚓ DEVERON</div>
+    <div class="top-logo"><img src="ship.png" alt="" width="40" height="26"/>DEVERON</div>
     <button class="top-lang-btn" onclick="showLangPicker()" id="cur-lang-btn">🇭🇷 HR</button>
   </div>
 
@@ -515,7 +517,7 @@ body.takeaway .o-show{display:none;}
         <button class="chat-sug" onclick="sendSug(this)">Koji je vaš specijalitet?</button>
       </div>
       <div class="chat-box" id="chat-box">
-        <div class="chat-msg ai"><span class="chat-av">⚓</span><div class="chat-bubble" id="ai-greet">Pozdrav! Ja sam Deveron AI asistent. Mogu vam pomoći s preporukama jela, vina i informacijama o restoranu. Što vas zanima?</div></div>
+        <div class="chat-msg ai"><span class="chat-av"><img src="ship.png" alt=""/></span><div class="chat-bubble" id="ai-greet">Pozdrav! Ja sam Deveron AI asistent. Mogu vam pomoći s preporukama jela, vina i informacijama o restoranu. Što vas zanima?</div></div>
       </div>
       <div class="chat-input-row">
         <input class="chat-input" id="chat-input" type="text" placeholder="Postavite pitanje..." onkeydown="if(event.key==='Enter')sendChat()"/>
@@ -1047,7 +1049,8 @@ function appendMsg(role,text){
   const div=document.createElement('div');
   div.className=`chat-msg ${role}`;
   const av=document.createElement('span');
-  av.className='chat-av';av.textContent=role==='ai'?'⚓':'👤';
+  av.className='chat-av';
+  if(role==='ai'){const img=new Image();img.src='ship.png';img.alt='';av.appendChild(img);}else av.textContent='👤';
   const bubble=document.createElement('div');
   bubble.className='chat-bubble';bubble.textContent=text;
   div.append(av,bubble);
