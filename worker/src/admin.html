@@ -66,6 +66,10 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
       <div><b>Narudžbe za van na webu</b><div class="muted" id="tk-state">…</div></div>
       <button id="tk-toggle" onclick="toggleTakeaway()">…</button>
     </div>
+    <div class="box switch">
+      <div><b>AI asistent na webu</b><div class="muted" id="ai-state">…</div></div>
+      <button id="ai-toggle" onclick="toggleAI()">…</button>
+    </div>
     <div class="box tools">
       <button data-p="today" class="on" onclick="period('today',this)">Danas</button>
       <button data-p="yesterday" onclick="period('yesterday',this)">Jučer</button>
@@ -164,21 +168,29 @@ function custom(){
   loadOrders();
 }
 
-var TK_ON = false;
+var SET = {};
 function drawSwitch(){
-  document.getElementById('tk-state').innerHTML = TK_ON ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gosti mogu naručiti za van (08:00–21:30).'
+  var on = SET.takeaway;
+  document.getElementById('tk-state').innerHTML = on ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gosti mogu naručiti za van (08:00–21:30).'
     : '<span style="color:#b71c1c;font-weight:bold">● Pauzirano</span> – gumb „Naruči za van" je skriven na webu.';
   var b = document.getElementById('tk-toggle');
-  b.textContent = TK_ON ? '⏸ Pauziraj' : '▶ Uključi narudžbe za van';
-  b.className = TK_ON ? 'on' : 'off';
+  b.textContent = on ? '⏸ Pauziraj' : '▶ Uključi narudžbe za van'; b.className = on ? 'on' : 'off';
+  var ai = SET.ai_switch, usage = ' Danas: ' + (SET.ai_today || 0) + ' / ' + (SET.ai_limit || 300) + ' pitanja.';
+  document.getElementById('ai-state').innerHTML = !SET.ai_key ? '<span style="color:#b26a00;font-weight:bold">● Nije spojeno</span> – u Cloudflareu nedostaje ANTHROPIC_API_KEY.'
+    : ai ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gosti mogu postavljati pitanja.' + usage
+    : '<span style="color:#b71c1c;font-weight:bold">● Pauzirano</span> – kartica AI asistenta je skrivena.' + usage;
+  var a = document.getElementById('ai-toggle');
+  a.textContent = ai ? '⏸ Pauziraj' : '▶ Uključi AI asistenta'; a.className = ai ? 'on' : 'off';
 }
-function loadSwitch(){ api('/api/admin/settings').then(function(d){ TK_ON = d.takeaway; drawSwitch(); }); }
-function toggleTakeaway(){
-  var b = document.getElementById('tk-toggle'); b.disabled = true;
-  fetch('/api/admin/settings', {method: 'POST', headers: {'X-Admin-Pin': PIN, 'Content-Type': 'application/json'}, body: JSON.stringify({takeaway: !TK_ON})})
-    .then(function(r){ return r.json(); }).then(function(d){ TK_ON = d.takeaway; drawSwitch(); b.disabled = false; })
-    .catch(function(){ b.disabled = false; });
+function loadSwitch(){ api('/api/admin/settings').then(function(d){ SET = d; drawSwitch(); }); }
+function setSetting(obj, btn){
+  btn.disabled = true;
+  fetch('/api/admin/settings', {method: 'POST', headers: {'X-Admin-Pin': PIN, 'Content-Type': 'application/json'}, body: JSON.stringify(obj)})
+    .then(function(r){ return r.json(); }).then(function(d){ SET = d; drawSwitch(); btn.disabled = false; })
+    .catch(function(){ btn.disabled = false; });
 }
+function toggleTakeaway(){ setSetting({takeaway: !SET.takeaway}, document.getElementById('tk-toggle')); }
+function toggleAI(){ setSetting({ai: !SET.ai_switch}, document.getElementById('ai-toggle')); }
 
 function loadOrders(){
   clearTimeout(timer);

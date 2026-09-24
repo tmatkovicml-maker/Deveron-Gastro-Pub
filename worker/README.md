@@ -24,12 +24,21 @@ Otvoriti adresu Workera u pregledniku tableta, upisati `WAITER_PIN` i dodirnuti 
 - **Loyalty kartice**: anonimni kodovi, potrošnja, popust, brisanje.
 - **Narudžbe za van na webu**: prekidač Pauziraj / Uključi (zadano pauzirano). Dok je pauzirano, gumb „Naruči za van" je skriven, a Worker odbija narudžbe za van.
 
+## AI asistent
+Gosti na webu (kartica „AI Chat") pitaju o jelima, vinima, alergenima i restoranu; odgovara Claude (Anthropic) na jeziku gosta, samo iz `menu.csv` i podataka o restoranu u `src/ai.js`.
+1. [console.anthropic.com](https://console.anthropic.com) → **API Keys** → **Create Key**. Ključ se nikome ne šalje.
+2. Worker → **Settings** → **Runtime variables and secrets** → **Add** → type **Secret**, ime `ANTHROPIC_API_KEY`, vrijednost ključ.
+3. Neobavezno (type **Text**): `AI_MODEL` (zadano `claude-opus-5`; jeftinije `claude-haiku-4-5`), `AI_DAILY_LIMIT` (najviše pitanja dnevno, zadano 300).
+4. `/admin` → **AI asistent na webu**: Isključi / Uključi. Tamo piše i broj pitanja danas.
+Kartica „AI Chat" vidi se samo kad je ključ upisan i prekidač uključen. Ograničenja: 30 pitanja po uređaju u 10 min i dnevni maksimum. Pitanja se ne spremaju. U Anthropic konzoli (Billing → Limits) preporučuje se postaviti mjesečni limit potrošnje.
+
 ## API
 - `POST /api/order` – narudžba sa stola (samo s deveronpub.com; najviše 5 po stolu u 10 min)
 - `POST /api/takeaway` – narudžba za van (08:00–21:30, ne 25.12.; najviše 3 po mobitelu na sat)
 - `GET /api/takeaway/:id?token=` – stanje narudžbe za van (`new`, `accepted`, `rejected`, `done`)
 - `GET /api/loyalty?card=` – popust i potrošnja loyalty kartice
-- `GET /api/status` – jesu li narudžbe za van uključene
+- `GET /api/status` – jesu li narudžbe za van i AI asistent uključeni
+- `POST /api/chat` – pitanje AI asistentu `{messages, lang}` → `{reply}` (samo s deveronpub.com)
 - `GET /api/orders` – otvorene narudžbe (zaglavlje `X-Waiter-Pin`)
 - `POST /api/orders/:id/done`, `POST /api/takeaway/:id/accept|reject|done` (zaglavlje `X-Waiter-Pin`)
 - `GET /api/admin/orders?from=&to=`, `GET /api/admin/cards`, `DELETE /api/admin/cards/:code`, `GET|POST /api/admin/settings` (zaglavlje `X-Admin-Pin`)

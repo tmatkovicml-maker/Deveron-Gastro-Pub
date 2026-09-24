@@ -198,6 +198,7 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
 .chat-msg.user .chat-bubble{background:rgba(26,58,92,.8);border:1px solid rgba(255,255,255,.1);color:var(--cream);}
 .chat-av{font-size:1.15rem;flex-shrink:0;margin-top:.15rem;}
 .chat-sugs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.55rem;}
+.chat-sugs[hidden]{display:none;}
 .chat-sug{background:none;border:1px solid var(--gold-dim);border-radius:16px;padding:.28rem .75rem;cursor:pointer;font-size:.82rem;color:var(--cream-dim);transition:all .2s;font-family:"Cormorant Garamond",serif;}
 .chat-sug:hover{border-color:var(--gold);color:var(--gold);}
 .chat-input-row{display:flex;gap:.45rem;}
@@ -742,7 +743,7 @@ function enterApp(lang){
 function route(){
   if(document.getElementById('app').style.display!=='block') return;
   let [page,tab]=decodeURIComponent(location.hash.slice(1)).split('/');
-  if(!page||!document.getElementById('page-'+page)||(page==='ai'&&!AI_ENDPOINT)) page='home';
+  if(!page||!document.getElementById('page-'+page)||(page==='ai'&&!AI_ON)) page='home';
   showPage(page,false);
   if(page==='menu'){
     const btn=document.querySelector(`.mtab[data-tab="${tab}"]`)||document.querySelector('.mtab[data-tab="jelovnik"]');
@@ -771,6 +772,7 @@ s('qa-menu','menu');s('qa-al','allergens');s('qa-call','call');
   document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.dataset.i18n;if(UI[k])e.textContent=UI[k][lang]||UI[k].HR;});
   document.querySelectorAll('[data-i18n-ph]').forEach(e=>{e.placeholder=t(e.dataset.i18nPh);});
   updateOpenStatus();
+  applyChatUI();
   if(typeof updateOrderBar==='function') updateOrderBar();
   const q=document.getElementById('menu-search');if(q&&q.value)searchMenu(q.value);
   const allBtn=document.getElementById('btn-all');
@@ -971,11 +973,42 @@ function showLangPicker(){ document.getElementById('lang-overlay').style.display
 function hideLangPicker(){ document.getElementById('lang-overlay').style.display='none'; }
 
 // AI Chat
-// URL of a server-side proxy that holds the API key, model and system prompt and
-// forwards the conversation to the Claude API. GitHub Pages only serves static
-// files, so the proxy must live elsewhere; while this is empty the AI tab is hidden.
-const AI_ENDPOINT='';
-if(!AI_ENDPOINT) document.getElementById('nav-ai').style.display='none';
+// Questions go to the order Worker (/api/chat), which keeps the API key and the menu
+// and asks Claude. The tab is shown only while /api/status reports the assistant on.
+let AI_ON=false;
+document.getElementById('nav-ai').style.display='none';
+const AI_TXT={
+  HR:{greet:'Pozdrav! Ja sam Deveron AI asistent. Pitajte me o jelima, vinima, alergenima ili restoranu.',
+      sugs:['Što preporučuješ za večeru?','Koje vino ide uz ribu?','Imate li nešto bez glutena?','Koji je vaš specijalitet?'],
+      ph:'Postavite pitanje...',busy:'AI asistent trenutno nije dostupan. Obratite se osoblju.',
+      limit:'Previše pitanja u kratkom vremenu. Pokušajte malo kasnije ili pitajte konobara.'},
+  EN:{greet:'Hello! I am the Deveron AI assistant. Ask me about dishes, wines, allergens or the restaurant.',
+      sugs:['What do you recommend for dinner?','Which wine goes with fish?','Do you have gluten-free dishes?','What is your speciality?'],
+      ph:'Ask a question...',busy:'The AI assistant is not available right now. Please ask our staff.',
+      limit:'Too many questions in a short time. Please try again later or ask your waiter.'},
+  DE:{greet:'Hallo! Ich bin der Deveron KI-Assistent. Fragen Sie mich zu Gerichten, Weinen, Allergenen oder zum Restaurant.',
+      sugs:['Was empfehlen Sie zum Abendessen?','Welcher Wein passt zu Fisch?','Haben Sie glutenfreie Gerichte?','Was ist Ihre Spezialität?'],
+      ph:'Stellen Sie eine Frage...',busy:'Der KI-Assistent ist gerade nicht verfügbar. Bitte fragen Sie unser Personal.',
+      limit:'Zu viele Fragen in kurzer Zeit. Bitte versuchen Sie es später oder fragen Sie den Kellner.'},
+  IT:{greet:'Ciao! Sono l\'assistente AI del Deveron. Chiedimi di piatti, vini, allergeni o del ristorante.',
+      sugs:['Cosa consigli per cena?','Quale vino si abbina al pesce?','Avete piatti senza glutine?','Qual è la vostra specialità?'],
+      ph:'Fai una domanda...',busy:'L\'assistente AI non è disponibile al momento. Chiedi al nostro personale.',
+      limit:'Troppe domande in poco tempo. Riprova più tardi o chiedi al cameriere.'},
+};
+function aiTxt(){return AI_TXT[currentLang]||AI_TXT.EN;}
+function applyChatUI(){
+  const t=aiTxt();
+  document.getElementById('ai-greet').textContent=t.greet;
+  document.getElementById('chat-input').placeholder=t.ph;
+  document.getElementById('chat-sugs').hidden=chatHistory.length>0;
+  document.querySelectorAll('#chat-sugs .chat-sug').forEach((b,i)=>b.textContent=t.sugs[i]);
+}
+function setAI(on){
+  AI_ON=on;
+  document.getElementById('nav-ai').style.display=on?'':'none';
+  if(!on&&document.getElementById('page-ai').classList.contains('active')) showPage('home');
+  else if(on&&location.hash==='#ai') route();
+}
 
 async function sendChat(){
   const inp=document.getElementById('chat-input');
@@ -988,11 +1021,12 @@ async function sendChat(){
 
   chatHistory.push({role:'user',content:msg});
   try{
-    const resp=await fetch(AI_ENDPOINT,{
+    document.getElementById('chat-sugs').hidden=true;
+    const resp=await fetch(ORDER_API.replace(/\/$/,'')+'/api/chat',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({messages:chatHistory.slice(-6)})
+      body:JSON.stringify({messages:chatHistory.slice(-10),lang:currentLang})
     });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    if(!resp.ok) throw new Error(resp.status);
     const data=await resp.json();
     const reply=data.reply;
     if(!reply) throw new Error('Empty reply');
@@ -1000,7 +1034,9 @@ async function sendChat(){
     appendMsg('ai',reply);
   }catch(e){
     chatHistory.pop();
-    appendMsg('ai','AI asistent trenutno nije dostupan. Obratite se osoblju.');
+    document.getElementById('chat-sugs').hidden=chatHistory.length>0;
+    appendMsg('ai',e.message==='429'?aiTxt().limit:aiTxt().busy);
+    if(e.message==='503') setAI(false);
   }
   btn.disabled=false;
   inp.focus();
@@ -1317,8 +1353,10 @@ function waiterDone(){clearOrder();closeOrder();}
 function hideWaiter(){document.getElementById('waiter-view').hidden=true;document.getElementById('order-edit').hidden=false;}
 loadOrder();
 if(ORDER_API){document.getElementById('send-btn').hidden=false;document.body.classList.add('can-send');}
-if(!TABLE&&ORDER_API){
+if(ORDER_API){
   fetch(ORDER_API.replace(/\/$/,'')+'/api/status').then(r=>r.json()).then(d=>{
+    setAI(!!d.ai);
+    if(TABLE) return;
     TAKEAWAY_ON=!!d.takeaway;
     document.getElementById('qa-takeaway').hidden=!TAKEAWAY_ON;
     if(!TAKEAWAY_ON&&MODE==='takeaway'){MODE=null;document.body.classList.remove('takeaway');if(document.getElementById('app').style.display==='block')renderAll();}

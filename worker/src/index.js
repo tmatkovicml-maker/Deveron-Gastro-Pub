@@ -5,7 +5,8 @@
 //   POST /api/takeaway                 takeaway order (name, phone, pickup time, optional loyalty card)
 //   GET  /api/takeaway/:id?token=…     {state: new|accepted|rejected|done, ready_at}
 //   GET  /api/loyalty?card=DEV-XXXX-XXXX  discount and spend of a loyalty card
-//   GET  /api/status                   {takeaway: true|false} – takeaway paused or not
+//   GET  /api/status                   {takeaway, ai} – which features are switched on
+//   POST /api/chat                     {messages, lang} → {reply}  AI assistant (Claude)
 // Waiter tablet (X-Waiter-Pin = WAITER_PIN):
 //   GET  /api/orders                   open table and takeaway orders
 //   POST /api/orders/:id/done          table order entered in the till
@@ -16,7 +17,7 @@
 //   GET  /api/admin/orders?from=&to=   all table and takeaway orders in a period
 //   GET  /api/admin/cards              loyalty cards
 //   DELETE /api/admin/cards/:code
-//   POST /api/admin/settings           {takeaway: true|false} – pause / resume takeaway orders
+//   POST /api/admin/settings           {takeaway?, ai?} – pause / resume takeaway orders and the AI assistant
 // Pages: /  waiter tablet · /admin  orders and loyalty cards
 //
 // Loyalty is anonymous: a card is only a random code kept on the guest's phone plus the
@@ -27,6 +28,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import WAITER_PAGE from './waiter.html';
 import ADMIN_PAGE from './admin.html';
+import { askClaude, validChat } from './ai.js';
 
 const SITE_ORIGINS = ['https://deveronpub.com', 'https://www.deveronpub.com'];
 const TABLES = 40;
@@ -36,6 +38,7 @@ const TAKEAWAY_FROM = 8 * 60, TAKEAWAY_UNTIL = 21 * 60 + 30;   // minutes of the
 const CLOSED_DAYS = [[12, 25]];                                // [month, day]
 const DEFAULT_TIERS = '100:10,300:15';
 const CARD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';        // no 0/O, 1/I
+const dailyLimit = env => parseInt(env.AI_DAILY_LIMIT, 10) || 300;   // AI questions per day
 
 function zagrebNow() {
   const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Zagreb' }));
@@ -103,7 +106,7 @@ export class Orders extends DurableObject {
       status TEXT NOT NULL DEFAULT 'new', ready_at INTEGER, closed INTEGER)`);
     // Settings changed from the admin page; takeaway starts paused until switched on
     this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
-    this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0')");
+    this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', '')");
     this.sql.exec(`CREATE TABLE IF NOT EXISTS cards (
       code TEXT PRIMARY KEY, spent REAL NOT NULL DEFAULT 0, orders INTEGER NOT NULL DEFAULT 0,
       created INTEGER NOT NULL, last_used INTEGER)`);
@@ -141,13 +144,43 @@ export class Orders extends DurableObject {
     return this.sql.exec("SELECT v FROM settings WHERE k = 'takeaway'").one().v === '1';
   }
 
+  setting(k) {
+    return this.sql.exec('SELECT v FROM settings WHERE k = ?', k).one().v;
+  }
+
+  aiEnabled() {
+    return this.setting('ai') === '1' && !!this.env.ANTHROPIC_API_KEY;
+  }
+
   status() {
-    return { takeaway: this.takeawayEnabled() };
+    return { takeaway: this.takeawayEnabled(), ai: this.aiEnabled() };
+  }
+
+  // For the admin page: switches plus today's AI usage
+  adminStatus() {
+    const [day, n] = (this.setting('ai_day') || ':0').split(':');
+    return { ...this.status(), ai_switch: this.setting('ai') === '1', ai_key: !!this.env.ANTHROPIC_API_KEY,
+      ai_today: day === new Date().toISOString().slice(0, 10) ? +n : 0, ai_limit: dailyLimit(this.env) };
   }
 
   setSettings(s) {
     if (typeof s.takeaway === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'takeaway'", s.takeaway ? '1' : '0');
-    return this.status();
+    if (typeof s.ai === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'ai'", s.ai ? '1' : '0');
+    return this.adminStatus();
+  }
+
+  // Protects the AI budget: 30 questions per connection per 10 minutes and a daily maximum
+  allowChat(ip) {
+    const now = Date.now();
+    this.cleanup(now);
+    if (this.count('ai:' + ip, now - 10 * 60 * 1000) >= 30) return { error: 'too_many', status: 429 };
+    const today = new Date().toISOString().slice(0, 10);
+    const [day, n] = (this.setting('ai_day') || ':0').split(':');
+    const used = day === today ? +n : 0;
+    if (used >= dailyLimit(this.env)) return { error: 'daily_limit', status: 429 };
+    this.sql.exec("UPDATE settings SET v = ? WHERE k = 'ai_day'", today + ':' + (used + 1));
+    this.sql.exec('INSERT INTO limits (k, at) VALUES (?, ?)', 'ai:' + ip, now);
+    return { ok: true };
   }
 
   card(code) {
@@ -356,6 +389,23 @@ export default {
       return json(await store.status(), 200, { ...c, 'Cache-Control': 'no-store' });
     }
 
+    if (path === '/api/chat' && request.method === 'POST') {
+      if (!(await store.aiEnabled())) return json({ error: 'ai_off' }, 503, c);
+      let body;
+      try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400, c); }
+      const chat = validChat(body);
+      if (!chat) return json({ error: 'invalid' }, 400, c);
+      const allowed = await store.allowChat(ip);
+      if (allowed.error) return json(allowed, allowed.status, c);
+      try {
+        const res = await askClaude(env, chat);
+        return json(res.reply ? { reply: res.reply } : { error: 'no_answer' }, res.reply ? 200 : 502, c);
+      } catch (e) {
+        console.error('AI error', e?.status, e?.message);
+        return json({ error: 'ai_error' }, 502, c);
+      }
+    }
+
     if (path === '/api/loyalty' && request.method === 'GET') {
       const code = normCard(url.searchParams.get('card'));
       return json(code ? await store.loyalty(code) : { valid: false }, 200, { ...c, 'Cache-Control': 'no-store' });
@@ -403,7 +453,7 @@ export default {
         return json(await store.setSettings(body));
       }
       if (path === '/api/admin/settings' && request.method === 'GET') {
-        return json(await store.status());
+        return json(await store.adminStatus());
       }
       if (path === '/api/admin/cards' && request.method === 'GET') {
         return json({ cards: await store.cards(), tiers: tiers(env) });
