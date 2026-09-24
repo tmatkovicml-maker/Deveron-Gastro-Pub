@@ -63,7 +63,11 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
 function api(path, opts){
   opts = opts || {};
   opts.headers = {'X-Waiter-Pin': PIN};
-  return fetch(path, opts).then(function(r){ if (r.status === 401) throw 'pin'; if (!r.ok) throw 'net'; return r.json(); });
+  return fetch(path, opts).then(function(r){
+    if (r.status === 401) return r.json().then(function(d){ throw d.error === 'no_pin' ? 'no_pin' : 'pin'; });
+    if (!r.ok) throw 'net';
+    return r.json();
+  });
 }
 
 function login(){
@@ -72,7 +76,10 @@ function login(){
     localStorage.setItem('deveron-pin', PIN);
     document.getElementById('login').hidden = true;
     document.getElementById('start').hidden = false;
-  }).catch(function(e){ document.getElementById('pin-err').textContent = e === 'pin' ? 'Pogrešan PIN' : 'Nema veze s poslužiteljem'; });
+  }).catch(function(e){ document.getElementById('pin-err').textContent =
+    e === 'pin' ? 'Pogrešan PIN' :
+    e === 'no_pin' ? 'PIN nije postavljen u Cloudflareu (Settings → Variables and Secrets → WAITER_PIN)' :
+    'Nema veze s poslužiteljem'; });
 }
 
 function start(){
@@ -126,7 +133,7 @@ function poll(){
     render(d);
     st.textContent = 'Povezano · ' + new Date().toLocaleTimeString('hr-HR'); st.className = '';
   }).catch(function(e){
-    if (e === 'pin'){ localStorage.removeItem('deveron-pin'); location.reload(); return; }
+    if (e === 'pin' || e === 'no_pin'){ localStorage.removeItem('deveron-pin'); location.reload(); return; }
     st.textContent = '⚠ Nema veze — provjerite internet'; st.className = 'bad';
   });
 }
