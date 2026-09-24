@@ -1,8 +1,8 @@
 # Cloudflare Worker for table orders (deployed by Cloudflare Workers Builds from
 # this folder). Set the waiter PIN once in the dashboard:
-#   Workers & Pages → deveron-orders → Settings → Variables and Secrets →
+#   Workers & Pages → deveron-gastro-pub → Settings → Variables and Secrets →
 #   Add → type "Secret", name WAITER_PIN, value e.g. 4821
-name = "deveron-orders"
+name = "deveron-gastro-pub"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 
