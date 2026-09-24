@@ -7,7 +7,7 @@ Prima narudžbe sa stolova (`deveronpub.com/?stol=N`) i prikazuje ih na tabletu 
 2. **Root directory**: `worker` (ostalo ostaviti kako jest) → **Deploy**.
 3. Worker `deveron-gastro-pub` → **Settings** → **Variables and Secrets** → **Add**:
    type **Secret**, name `WAITER_PIN`, value = PIN za konobare (npr. 4 znamenke).
-4. Adresu Workera (npr. `https://deveron-gastro-pub.NESTO.workers.dev`) upisati u `index.html` kao `ORDER_API`.
+4. Adresu Workera (`https://deveron-gastro-pub.t-matkovicml.workers.dev`) upisana je u `index.html` kao `ORDER_API`.
 
 ## Tablet
 Otvoriti adresu Workera u pregledniku tableta, upisati PIN i dodirnuti „Uključi zvuk i počni".

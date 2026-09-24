@@ -1026,7 +1026,7 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 const TABLE_COUNT=40;
 // Cloudflare Worker (folder worker/) that forwards orders to the waiter tablet.
 // While empty, guests can only show their order to the waiter.
-const ORDER_API='';
+const ORDER_API='https://deveron-gastro-pub.t-matkovicml.workers.dev';
 const TABLE=(()=>{
   const n=parseInt(new URLSearchParams(location.search).get('stol'),10);
   if(n>=1&&n<=TABLE_COUNT){try{sessionStorage.setItem('deveron-table',n);}catch(e){} return n;}
