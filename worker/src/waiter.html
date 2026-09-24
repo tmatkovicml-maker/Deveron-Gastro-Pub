@@ -26,6 +26,21 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .note{margin-top:.6rem;background:#fff4c2;padding:.5rem .7rem;border-radius:6px;font-size:1.1rem;}
 .total{margin-top:.6rem;text-align:right;font-size:1.15rem;}
 .done{margin-top:.8rem;padding:.9rem;border:none;border-radius:10px;background:var(--green);color:#fff;font-size:1.1rem;font-weight:bold;cursor:pointer;}
+.card.tk{border-top-color:#1565c0;}
+.card.tk.accepted{border-top-color:#1b7f3b;}
+.tk-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;}
+.tk-head .tbl{font-size:1.7rem;color:#1565c0;}
+.who{font-size:1.2rem;font-weight:bold;margin-top:.2rem;}
+.who a{color:#1565c0;text-decoration:none;}
+.pick{font-size:1.1rem;margin:.3rem 0 .4rem;}
+.pick b{background:#e3f2fd;padding:.1rem .4rem;border-radius:4px;}
+.loy{margin-top:.5rem;background:#fff8e1;border:1px solid #ffcc80;padding:.45rem .6rem;border-radius:6px;font-size:1.05rem;}
+.btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.8rem;}
+.btns button,.btns a{flex:1;min-width:4.5rem;padding:.8rem .4rem;border:none;border-radius:10px;font-size:1.05rem;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;}
+.b-ok{background:var(--green);color:#fff;}
+.b-no{background:#fdecea;color:#b71c1c;}
+.b-call{background:#e3f2fd;color:#1565c0;}
+.ready{font-size:1.15rem;margin-top:.5rem;color:var(--green);font-weight:bold;}
 .empty{grid-column:1/-1;text-align:center;color:#777;font-size:1.3rem;padding:4rem 1rem;}
 .overlay{position:fixed;inset:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem;z-index:10;text-align:center;}
 .overlay[hidden]{display:none;}
@@ -62,7 +77,7 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(
 
 function api(path, opts){
   opts = opts || {};
-  opts.headers = {'X-Waiter-Pin': PIN};
+  opts.headers = {'X-Waiter-Pin': PIN, 'Content-Type': 'application/json'};
   return fetch(path, opts).then(function(r){
     if (r.status === 401) return r.json().then(function(d){ throw d.error === 'no_pin' ? 'no_pin' : 'pin'; });
     if (!r.ok) throw 'net';
@@ -94,11 +109,11 @@ function keepAwake(){
 }
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) keepAwake(); });
 
-function beep(){
+function beep(takeaway){
   if (!audio) return;
-  [0, 0.25, 0.5].forEach(function(t, i){
+  [0, 0.25, 0.5, takeaway ? 0.75 : null].filter(function(x){ return x !== null; }).forEach(function(t, i){
     var o = audio.createOscillator(), g = audio.createGain();
-    o.frequency.value = i === 2 ? 1320 : 880; o.connect(g); g.connect(audio.destination);
+    o.frequency.value = takeaway ? (i % 2 ? 660 : 990) : (i === 2 ? 1320 : 880); o.connect(g); g.connect(audio.destination);
     g.gain.setValueAtTime(0.4, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.22);
     o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.23);
   });
@@ -109,22 +124,65 @@ function ago(ms){
   return m < 1 ? 'upravo' : 'prije ' + m + ' min';
 }
 
+function tableCard(o, isNew, now){
+  var t = new Date(o.created);
+  return '<div class="card' + (isNew ? ' new' : '') + '">' +
+    '<div class="tbl">STOL ' + o.tbl + '</div>' +
+    '<div class="meta">' + t.toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}) + ' · ' + ago(now - o.created) + ' · gost: ' + (FLAGS[o.lang] || '') + ' ' + esc(o.lang) + '</div>' +
+    lines(o) + (o.note ? '<div class="note">Napomena: ' + esc(o.note) + '</div>' : '') +
+    '<div class="total">Ukupno <b>' + esc(o.total) + '</b></div>' +
+    '<button class="done" onclick="done(' + o.id + ', this)">✓ Otkucano</button></div>';
+}
+
+function takeawayCard(o, isNew, now){
+  var t = new Date(o.created);
+  var hm = function(ms){ return new Date(ms).toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}); };
+  var tel = esc(o.phone);
+  var html = '<div class="card tk' + (o.status === 'accepted' ? ' accepted' : '') + (isNew ? ' new' : '') + '">' +
+    '<div class="tk-head"><div class="tbl">🥡 ZA VAN</div><div class="meta">#' + o.id + ' · ' + hm(o.created) + ' · ' + ago(now - o.created) + '</div></div>' +
+    '<div class="who">' + esc(o.name) + ' · <a href="tel:' + tel + '">' + tel + '</a> ' + (FLAGS[o.lang] || '') + '</div>' +
+    '<div class="pick">Preuzimanje: <b>' + (o.pickup === 'asap' ? 'što prije' : esc(o.pickup)) + '</b></div>' +
+    lines(o) + (o.note ? '<div class="note">Napomena: ' + esc(o.note) + '</div>' : '') +
+    '<div class="total">Ukupno <b>' + esc(o.total) + '</b></div>' +
+    (o.discount ? '<div class="loy">⭐ Loyalty −' + o.discount + ' % → za platiti <b>' + esc(o.to_pay) + '</b></div>' : '');
+  if (o.status === 'new') {
+    html += '<div class="btns">' +
+      [15, 30, 45].map(function(mn){ return '<button class="b-ok" onclick="tk(' + o.id + ',\'accept\',this,' + mn + ')">✓ ' + mn + ' min</button>'; }).join('') +
+      '</div><div class="btns"><button class="b-no" onclick="tk(' + o.id + ',\'reject\',this)">✗ Odbij</button>' +
+      '<a class="b-call" href="tel:' + tel + '">📞 Nazovi</a></div>';
+  } else {
+    html += '<div class="ready">Gotovo u ' + hm(o.ready_at) + '</div>' +
+      '<div class="btns"><button class="b-ok" onclick="tk(' + o.id + ',\'done\',this)">✓ Preuzeto i plaćeno</button>' +
+      '<a class="b-call" href="tel:' + tel + '">📞 Nazovi</a></div>';
+  }
+  return html + '</div>';
+}
+
+function lines(o){
+  return o.lines.map(function(l){ return '<div class="line"><b>' + l.qty + '×</b><span>' + esc(l.name) + '</span><i>' + esc(l.price) + '</i></div>'; }).join('');
+}
+
 function render(data){
-  var grid = document.getElementById('grid'), fresh = false;
-  if (!data.orders.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; }
-  else grid.innerHTML = data.orders.map(function(o){
-    var isNew = !seen[o.id]; if (isNew && !first) fresh = true; seen[o.id] = true;
-    var t = new Date(o.created);
-    return '<div class="card' + (isNew && !first ? ' new' : '') + '">' +
-      '<div class="tbl">STOL ' + o.tbl + '</div>' +
-      '<div class="meta">' + t.toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}) + ' · ' + ago(data.now - o.created) + ' · gost: ' + (FLAGS[o.lang] || '') + ' ' + esc(o.lang) + '</div>' +
-      o.lines.map(function(l){ return '<div class="line"><b>' + l.qty + '×</b><span>' + esc(l.name) + '</span><i>' + esc(l.price) + '</i></div>'; }).join('') +
-      (o.note ? '<div class="note">Napomena: ' + esc(o.note) + '</div>' : '') +
-      '<div class="total">Ukupno <b>' + esc(o.total) + '</b></div>' +
-      '<button class="done" onclick="done(' + o.id + ', this)">✓ Otkucano</button></div>';
-  }).join('');
-  if (fresh) beep();
+  var grid = document.getElementById('grid'), freshTable = false, freshTk = false;
+  var tk = data.takeaway || [];
+  if (!data.orders.length && !tk.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
+  var cards = tk.map(function(o){
+    var key = 'k' + o.id, isNew = !seen[key] && !first; if (isNew) freshTk = true; seen[key] = true;
+    return takeawayCard(o, isNew, data.now);
+  }).concat(data.orders.map(function(o){
+    var key = 't' + o.id, isNew = !seen[key] && !first; if (isNew) freshTable = true; seen[key] = true;
+    return tableCard(o, isNew, data.now);
+  }));
+  grid.innerHTML = cards.join('');
+  if (freshTk) beep(true); else if (freshTable) beep(false);
   first = false;
+}
+
+function tk(id, action, btn, minutes){
+  if (action === 'reject' && !confirm('Odbiti narudžbu #' + id + '? Gost će vidjeti da je odbijena.')) return;
+  btn.disabled = true;
+  api('/api/takeaway/' + id + '/' + action, {method: 'POST', body: JSON.stringify({minutes: minutes || 0})}).then(poll)
+    .catch(function(){ btn.disabled = false; });
 }
 
 function poll(){
