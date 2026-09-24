@@ -1,0 +1,15 @@
+# Cloudflare Worker for table orders (deployed by Cloudflare Workers Builds from
+# this folder). Set the waiter PIN once in the dashboard:
+#   Workers & Pages → deveron-orders → Settings → Variables and Secrets →
+#   Add → type "Secret", name WAITER_PIN, value e.g. 4821
+name = "deveron-orders"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "ORDERS"
+class_name = "Orders"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Orders"]
