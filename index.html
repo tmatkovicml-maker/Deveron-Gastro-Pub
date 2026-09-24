@@ -244,6 +244,52 @@ body.searching .menu-subcontent.active{display:none;}
 .open-status.is-open{color:#66bb6a;}
 .open-status.is-closed{color:var(--red);}
 
+
+/* TABLE ORDERING */
+.add-btn{flex-shrink:0;align-self:center;width:36px;height:36px;border-radius:50%;border:1px solid var(--gold);background:rgba(201,168,76,.1);color:var(--gold);font-size:1.3rem;line-height:1;cursor:pointer;transition:transform .15s,background .2s;}
+.add-btn:active{transform:scale(.9);background:rgba(201,168,76,.3);}
+.add-btn.bump{animation:bump .35s;}
+@keyframes bump{50%{transform:scale(1.25);background:var(--gold);color:var(--navy);}}
+.order-bar{position:fixed;left:.6rem;right:.6rem;bottom:calc(64px + env(safe-area-inset-bottom));z-index:99;display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.75rem 1rem;border-radius:12px;border:none;background:var(--gold);color:var(--navy);font-family:"Lato",sans-serif;font-size:.95rem;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.45);}
+.order-bar[hidden]{display:none;}
+body.has-order .page{padding-bottom:9rem;}
+#order-overlay{position:fixed;inset:0;z-index:250;background:rgba(3,8,16,.75);display:flex;align-items:flex-end;justify-content:center;}
+#order-overlay[hidden]{display:none;}
+.order-sheet{width:100%;max-width:560px;max-height:88vh;overflow-y:auto;background:var(--navy-mid);border:1px solid var(--gold-dim);border-radius:16px 16px 0 0;padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom));}
+.order-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;}
+.order-head .picker-close{position:static;}
+.order-title{font-family:"Cinzel",serif;color:var(--gold);font-size:1rem;letter-spacing:.06em;}
+.o-line{display:flex;align-items:center;gap:.6rem;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.07);}
+.o-name{flex:1;font-family:"Cormorant Garamond",serif;font-size:1.08rem;line-height:1.3;}
+.o-price{font-family:"Cinzel",serif;color:var(--gold);font-size:.9rem;white-space:nowrap;}
+.o-qty{display:flex;align-items:center;gap:.35rem;}
+.o-qty button{width:30px;height:30px;border-radius:50%;border:1px solid var(--gold-dim);background:none;color:var(--cream);font-size:1.05rem;cursor:pointer;}
+.o-qty b{min-width:1.3em;text-align:center;}
+.o-empty{color:var(--cream-dim);font-style:italic;font-family:"Cormorant Garamond",serif;font-size:1.1rem;padding:1rem 0;text-align:center;}
+#order-note{width:100%;margin-top:.8rem;background:rgba(7,16,31,.6);border:1px solid var(--gold-dim);border-radius:8px;padding:.6rem .8rem;color:var(--cream);font-family:"Lato",sans-serif;font-size:.92rem;resize:vertical;}
+.order-total{display:flex;justify-content:space-between;margin-top:.9rem;font-family:"Cinzel",serif;color:var(--gold);font-size:1.05rem;}
+.order-hint{font-size:.82rem;color:var(--cream-dim);margin:.5rem 0 .9rem;text-align:center;}
+.order-actions{display:flex;gap:.6rem;}
+.o-btn{flex:1;padding:.8rem;border-radius:10px;font-size:.95rem;cursor:pointer;font-family:"Lato",sans-serif;font-weight:700;}
+.o-primary{background:var(--gold);color:var(--navy);border:none;}
+.o-secondary{background:none;color:var(--cream-dim);border:1px solid var(--gold-dim);}
+.o-btn:disabled{opacity:.4;}
+/* Waiter view: high contrast, always Croatian */
+.waiter-view{position:fixed;inset:0;background:#fff;color:#111;overflow-y:auto;padding:1.2rem 1.2rem 2rem;font-family:"Lato",Arial,sans-serif;}
+.waiter-view[hidden]{display:none;}
+.w-table{font-size:2.6rem;font-weight:700;letter-spacing:.04em;text-align:center;border-bottom:3px solid #111;padding-bottom:.4rem;}
+.w-meta{text-align:center;color:#555;font-size:.9rem;margin:.4rem 0 .8rem;}
+.w-line{display:flex;gap:.8rem;font-size:1.35rem;padding:.55rem 0;border-bottom:1px solid #ddd;}
+.w-line b{min-width:2.2em;}
+.w-line span{flex:1;}
+.w-line i{font-style:normal;color:#444;white-space:nowrap;}
+.w-note{margin-top:.8rem;font-size:1.2rem;background:#fff4c2;padding:.6rem .8rem;border-radius:6px;}
+.w-note:empty{display:none;}
+.w-total{margin-top:1rem;font-size:1.4rem;text-align:right;}
+.w-done{margin-top:1.4rem;width:100%;background:#1b7f3b;color:#fff;font-size:1.1rem;padding:1rem;}
+.w-back{margin-top:.7rem;width:100%;color:#333;border-color:#999;}
+@media (min-width:1000px){ .order-bar{bottom:1rem;left:auto;right:1.5rem;min-width:360px;} #order-overlay{align-items:center;} .order-sheet{border-radius:16px;} }
+
 /* DESKTOP / TABLET */
 @media (min-width:760px){
   .qa-grid,.ic-grid{max-width:880px;grid-template-columns:repeat(4,1fr);}
@@ -494,6 +540,37 @@ body.searching .menu-subcontent.active{display:none;}
   </div>
 
   <!-- BOTTOM NAV -->
+  <!-- ORDER (only when opened from a table QR code, ?stol=N) -->
+  <button class="order-bar" id="order-bar" hidden onclick="openOrder()">
+    <span>🧾 <span data-i18n="order">Narudžba</span> · <span data-i18n="table">Stol</span> <b class="o-table"></b></span>
+    <span><b id="order-count">0</b> · <b id="order-sum">0,00 €</b></span>
+  </button>
+  <div id="order-overlay" hidden>
+    <div class="order-sheet" id="order-edit">
+      <div class="order-head">
+        <div class="order-title">🧾 <span data-i18n="order">Narudžba</span> · <span data-i18n="table">Stol</span> <span class="o-table"></span></div>
+        <button class="picker-close" onclick="closeOrder()" aria-label="✕">✕</button>
+      </div>
+      <div id="order-lines"></div>
+      <textarea id="order-note" rows="2" data-i18n-ph="note_ph" placeholder="Napomena (npr. bez luka)…" oninput="saveOrder()"></textarea>
+      <div class="order-total"><span data-i18n="total">Ukupno</span><b id="order-total">0,00 €</b></div>
+      <p class="order-hint" data-i18n="order_note">Narudžbu potvrđuje konobar. Pokažite mu ovaj ekran.</p>
+      <div class="order-actions">
+        <button class="o-btn o-secondary" onclick="clearOrder()" data-i18n="clear_order">Isprazni</button>
+        <button class="o-btn o-primary" onclick="showWaiter()" data-i18n="show_waiter">Pokaži konobaru</button>
+      </div>
+    </div>
+    <div class="waiter-view" id="waiter-view" hidden>
+      <div class="w-table">STOL <span class="o-table"></span></div>
+      <div class="w-meta" id="w-meta"></div>
+      <div id="w-lines"></div>
+      <div class="w-note" id="w-note"></div>
+      <div class="w-total">Ukupno <b id="w-total"></b></div>
+      <button class="o-btn o-primary w-done" onclick="waiterDone()">✓ Otkucano – isprazni narudžbu</button>
+      <button class="o-btn o-secondary w-back" onclick="hideWaiter()">← <span data-i18n="back">Natrag</span></button>
+    </div>
+  </div>
+
   <nav class="bottom-nav">
     <button class="nav-btn active" onclick="showPage('home')" id="nav-home"><span class="ni">🏠</span><span id="nl-home">Početna</span></button>
     <button class="nav-btn" onclick="showPage('menu')" id="nav-menu"><span class="ni">🍽️</span><span id="nl-menu">Meni</span></button>
@@ -521,7 +598,7 @@ const UI           = {"menu": {"HR": "Meni", "EN": "Menu", "DE": "Speisekarte", 
 const WELCOME_ROT  = [{"lang": "HR", "flag": "🇭🇷", "msg": "Dobro došli! Ja sam vaš digitalni asistent."}, {"lang": "EN", "flag": "🇬🇧", "msg": "Welcome! I am your digital assistant."}, {"lang": "DE", "flag": "🇩🇪", "msg": "Willkommen! Ich bin Ihr digitaler Assistent."}, {"lang": "IT", "flag": "🇮🇹", "msg": "Benvenuto! Sono il tuo assistente digitale."}, {"lang": "FR", "flag": "🇫🇷", "msg": "Bienvenue! Je suis votre assistant numérique."}, {"lang": "ES", "flag": "🇪🇸", "msg": "¡Bienvenido! Soy tu asistente digital."}, {"lang": "PT", "flag": "🇵🇹", "msg": "Bem-vindo! Sou seu assistente digital."}, {"lang": "NL", "flag": "🇳🇱", "msg": "Welkom! Ik ben uw digitale assistent."}, {"lang": "PL", "flag": "🇵🇱", "msg": "Witaj! Jestem Twoim asystentem cyfrowym."}, {"lang": "RU", "flag": "🇷🇺", "msg": "Добро пожаловать! Я ваш цифровой ассистент."}, {"lang": "HU", "flag": "🇭🇺", "msg": "Üdvözlöm! Én vagyok a digitális asszisztense."}, {"lang": "CS", "flag": "🇨🇿", "msg": "Vítejte! Jsem váš digitální asistent."}, {"lang": "SK", "flag": "🇸🇰", "msg": "Vitajte! Som váš digitálny asistent."}, {"lang": "SL", "flag": "🇸🇮", "msg": "Dobrodošli! Sem vaš digitalni asistent."}, {"lang": "UA", "flag": "🇺🇦", "msg": "Ласкаво просимо! Я ваш цифровий помічник."}, {"lang": "RO", "flag": "🇷🇴", "msg": "Bun venit! Sunt asistentul tău digital."}];
 
 const UI_EXTRA = {"address": {"HR": "Adresa", "EN": "Address", "DE": "Adresse", "IT": "Indirizzo", "FR": "Adresse", "ES": "Dirección", "PT": "Morada", "NL": "Adres", "PL": "Adres", "RU": "Адрес", "HU": "Cím", "CS": "Adresa", "SK": "Adresa", "SL": "Naslov", "UA": "Адреса", "RO": "Adresă"}, "kitchen": {"HR": "Kuhinja", "EN": "Kitchen", "DE": "Küche", "IT": "Cucina", "FR": "Cuisine", "ES": "Cocina", "PT": "Cozinha", "NL": "Keuken", "PL": "Kuchnia", "RU": "Кухня", "HU": "Konyha", "CS": "Kuchyně", "SK": "Kuchyňa", "SL": "Kuhinja", "UA": "Кухня", "RO": "Bucătărie"}, "kitchen_until": {"HR": "Kuhinja do 22:00", "EN": "Kitchen until 22:00", "DE": "Küche bis 22:00", "IT": "Cucina fino alle 22:00", "FR": "Cuisine jusqu'à 22h00", "ES": "Cocina hasta las 22:00", "PT": "Cozinha até às 22:00", "NL": "Keuken tot 22:00", "PL": "Kuchnia do 22:00", "RU": "Кухня до 22:00", "HU": "Konyha 22:00-ig", "CS": "Kuchyně do 22:00", "SK": "Kuchyňa do 22:00", "SL": "Kuhinja do 22:00", "UA": "Кухня до 22:00", "RO": "Bucătăria până la 22:00"}, "season": {"HR": "sezona", "EN": "season", "DE": "Saison", "IT": "stagione", "FR": "saison", "ES": "temporada", "PT": "época", "NL": "seizoen", "PL": "sezon", "RU": "сезон", "HU": "szezon", "CS": "sezóna", "SK": "sezóna", "SL": "sezona", "UA": "сезон", "RO": "sezon"}, "reserve_table": {"HR": "Rezerviraj stol", "EN": "Book a table", "DE": "Tisch reservieren", "IT": "Prenota un tavolo", "FR": "Réserver une table", "ES": "Reservar mesa", "PT": "Reservar mesa", "NL": "Tafel reserveren", "PL": "Zarezerwuj stolik", "RU": "Забронировать столик", "HU": "Asztalfoglalás", "CS": "Rezervovat stůl", "SK": "Rezervovať stôl", "SL": "Rezerviraj mizo", "UA": "Забронювати столик", "RO": "Rezervă o masă"}, "online_booking": {"HR": "Online rezervacija →", "EN": "Online booking →", "DE": "Online-Reservierung →", "IT": "Prenotazione online →", "FR": "Réservation en ligne →", "ES": "Reserva online →", "PT": "Reserva online →", "NL": "Online reserveren →", "PL": "Rezerwacja online →", "RU": "Онлайн-бронирование →", "HU": "Online foglalás →", "CS": "Online rezervace →", "SK": "Online rezervácia →", "SL": "Spletna rezervacija →", "UA": "Онлайн-бронювання →", "RO": "Rezervare online →"}, "gm_score": {"HR": "12,5 kapica", "EN": "12.5 toques", "DE": "12,5 Hauben", "IT": "12,5 cappelli", "FR": "12,5 toques", "ES": "12,5 gorros", "PT": "12,5 chapéus", "NL": "12,5 koksmutsen", "PL": "12,5 czapek", "RU": "12,5 колпаков", "HU": "12,5 szakácssapka", "CS": "12,5 čepic", "SK": "12,5 čapíc", "SL": "12,5 kap", "UA": "12,5 ковпаків", "RO": "12,5 bonete"}, "wifi_network": {"HR": "WiFi mreža", "EN": "WiFi network", "DE": "WLAN-Netzwerk", "IT": "Rete WiFi", "FR": "Réseau WiFi", "ES": "Red WiFi", "PT": "Rede WiFi", "NL": "WiFi-netwerk", "PL": "Sieć WiFi", "RU": "Сеть WiFi", "HU": "WiFi hálózat", "CS": "Síť WiFi", "SK": "Sieť WiFi", "SL": "Omrežje WiFi", "UA": "Мережа WiFi", "RO": "Rețea WiFi"}, "wifi_password": {"HR": "Lozinka", "EN": "Password", "DE": "Passwort", "IT": "Password", "FR": "Mot de passe", "ES": "Contraseña", "PT": "Palavra-passe", "NL": "Wachtwoord", "PL": "Hasło", "RU": "Пароль", "HU": "Jelszó", "CS": "Heslo", "SK": "Heslo", "SL": "Geslo", "UA": "Пароль", "RO": "Parolă"}, "parking_note": {"HR": "~5 min hoda, izvan centra", "EN": "~5 min walk, outside the centre", "DE": "~5 Min. zu Fuß, außerhalb des Zentrums", "IT": "~5 min a piedi, fuori dal centro", "FR": "~5 min à pied, hors du centre", "ES": "~5 min a pie, fuera del centro", "PT": "~5 min a pé, fora do centro", "NL": "~5 min lopen, buiten het centrum", "PL": "~5 min pieszo, poza centrum", "RU": "~5 мин пешком, за пределами центра", "HU": "~5 perc séta, a központon kívül", "CS": "~5 min chůze, mimo centrum", "SK": "~5 min chôdze, mimo centra", "SL": "~5 min hoje, izven središča", "UA": "~5 хв пішки, за межами центру", "RO": "~5 min de mers, în afara centrului"}, "tab_food": {"HR": "Jelovnik", "EN": "Food menu", "DE": "Speisen", "IT": "Piatti", "FR": "Plats", "ES": "Platos", "PT": "Pratos", "NL": "Gerechten", "PL": "Dania", "RU": "Блюда", "HU": "Ételek", "CS": "Jídla", "SK": "Jedlá", "SL": "Jedi", "UA": "Страви", "RO": "Mâncăruri"}, "tab_drinks": {"HR": "Pića", "EN": "Drinks", "DE": "Getränke", "IT": "Bevande", "FR": "Boissons", "ES": "Bebidas", "PT": "Bebidas", "NL": "Dranken", "PL": "Napoje", "RU": "Напитки", "HU": "Italok", "CS": "Nápoje", "SK": "Nápoje", "SL": "Pijače", "UA": "Напої", "RO": "Băuturi"}, "tab_wine": {"HR": "Vino", "EN": "Wine", "DE": "Wein", "IT": "Vino", "FR": "Vin", "ES": "Vino", "PT": "Vinho", "NL": "Wijn", "PL": "Wino", "RU": "Вино", "HU": "Bor", "CS": "Víno", "SK": "Víno", "SL": "Vino", "UA": "Вино", "RO": "Vin"}, "tab_desserts": {"HR": "Deserti", "EN": "Desserts", "DE": "Desserts", "IT": "Dolci", "FR": "Desserts", "ES": "Postres", "PT": "Sobremesas", "NL": "Desserts", "PL": "Desery", "RU": "Десерты", "HU": "Desszertek", "CS": "Dezerty", "SK": "Dezerty", "SL": "Sladice", "UA": "Десерти", "RO": "Deserturi"}, "wine_pair": {"HR": "Preporučeno vino", "EN": "Recommended wine", "DE": "Weinempfehlung", "IT": "Vino consigliato", "FR": "Vin recommandé", "ES": "Vino recomendado", "PT": "Vinho recomendado", "NL": "Aanbevolen wijn", "PL": "Polecane wino", "RU": "Рекомендуемое вино", "HU": "Ajánlott bor", "CS": "Doporučené víno", "SK": "Odporúčané víno", "SL": "Priporočeno vino", "UA": "Рекомендоване вино", "RO": "Vin recomandat"}, "al_note": {"HR": "Za detalje o alergenima u pojedinim jelima, molimo obratite se osoblju.", "EN": "For details about allergens in individual dishes, please ask our staff.", "DE": "Für Details zu Allergenen in einzelnen Gerichten wenden Sie sich bitte an unser Personal.", "IT": "Per informazioni sugli allergeni nei singoli piatti, rivolgersi al personale.", "FR": "Pour plus de détails sur les allergènes de chaque plat, veuillez vous adresser au personnel.", "ES": "Para más información sobre los alérgenos de cada plato, consulte a nuestro personal.", "PT": "Para detalhes sobre os alergénios de cada prato, fale com os nossos funcionários.", "NL": "Voor informatie over allergenen in afzonderlijke gerechten kunt u ons personeel raadplegen.", "PL": "Szczegółowe informacje o alergenach w poszczególnych daniach uzyska Pan/Pani u obsługi.", "RU": "Подробности об аллергенах в отдельных блюдах уточняйте у персонала.", "HU": "Az egyes ételek allergénjeiről kérdezze munkatársainkat.", "CS": "Podrobnosti o alergenech v jednotlivých jídlech vám sdělí obsluha.", "SK": "Podrobnosti o alergénoch v jednotlivých jedlách vám poskytne obsluha.", "SL": "Za podrobnosti o alergenih v posameznih jedeh vprašajte osebje.", "UA": "Докладніше про алергени в окремих стравах запитуйте в персоналу.", "RO": "Pentru detalii despre alergenii din fiecare preparat, vă rugăm să întrebați personalul."}, "about": {"HR": "Deveron nosi ime po jedrenjaku izgrađenom u Velikoj Britaniji za lošinjsku obitelj Cosulich — uvijek s kapetanima iz Lošinja za kormilom. Svaki detalj u kuhinji i za stolom radimo s istom pažnjom kojom su kapetani plovili daleka mora.", "EN": "Deveron is named after a sailing ship built in Great Britain for the Cosulich family of Lošinj — always with captains from Lošinj at the helm. We prepare every detail in the kitchen and at the table with the same care with which those captains sailed distant seas.", "DE": "Deveron ist nach einem Segelschiff benannt, das in Großbritannien für die Lošinjer Familie Cosulich gebaut wurde – stets mit Kapitänen aus Lošinj am Steuer. Jedes Detail in der Küche und am Tisch gestalten wir mit derselben Sorgfalt, mit der diese Kapitäne ferne Meere befuhren.", "IT": "Deveron prende il nome da un veliero costruito in Gran Bretagna per la famiglia Cosulich di Lussino, sempre con capitani lussignani al timone. Curiamo ogni dettaglio in cucina e a tavola con la stessa attenzione con cui quei capitani solcavano mari lontani.", "FR": "Deveron doit son nom à un voilier construit en Grande-Bretagne pour la famille Cosulich de Lošinj — toujours avec des capitaines de Lošinj à la barre. Nous soignons chaque détail en cuisine et à table avec le même soin que ces capitaines naviguant sur des mers lointaines.", "ES": "Deveron lleva el nombre de un velero construido en Gran Bretaña para la familia Cosulich de Lošinj, siempre con capitanes de Lošinj al timón. Cuidamos cada detalle en la cocina y en la mesa con el mismo esmero con el que aquellos capitanes navegaban mares lejanos.", "PT": "Deveron deve o nome a um veleiro construído na Grã-Bretanha para a família Cosulich, de Lošinj — sempre com capitães de Lošinj ao leme. Cuidamos de cada detalhe na cozinha e à mesa com o mesmo cuidado com que esses capitães navegavam mares distantes.", "NL": "Deveron is vernoemd naar een zeilschip dat in Groot-Brittannië werd gebouwd voor de familie Cosulich uit Lošinj — altijd met kapiteins uit Lošinj aan het roer. Elk detail in de keuken en aan tafel verzorgen we met dezelfde zorg waarmee die kapiteins verre zeeën bevoeren.", "PL": "Deveron zawdzięcza nazwę żaglowcowi zbudowanemu w Wielkiej Brytanii dla rodziny Cosulich z Lošinja — zawsze z kapitanami z Lošinja za sterem. Każdy szczegół w kuchni i przy stole dopracowujemy z tą samą starannością, z jaką ci kapitanowie żeglowali po dalekich morzach.", "RU": "Deveron назван в честь парусника, построенного в Великобритании для лошиньской семьи Козулич, — всегда с капитанами из Лошиня у штурвала. Каждую деталь на кухне и за столом мы продумываем с той же заботой, с какой эти капитаны бороздили далёкие моря.", "HU": "A Deveron nevét egy vitorláshajóról kapta, amelyet Nagy-Britanniában építettek a lošinji Cosulich család számára – mindig lošinji kapitányokkal a kormánynál. A konyhában és az asztalnál minden részletre ugyanazzal a gondossággal figyelünk, amellyel e kapitányok a távoli tengereket járták.", "CS": "Deveron nese jméno plachetnice postavené ve Velké Británii pro lošinjskou rodinu Cosulich – vždy s kapitány z Lošinje u kormidla. Každý detail v kuchyni i u stolu připravujeme se stejnou péčí, s jakou tito kapitáni brázdili vzdálená moře.", "SK": "Deveron nesie meno plachetnice postavenej vo Veľkej Británii pre lošinjskú rodinu Cosulich – vždy s kapitánmi z Lošinja za kormidlom. Každý detail v kuchyni aj pri stole pripravujeme s rovnakou starostlivosťou, s akou títo kapitáni brázdili vzdialené moria.", "SL": "Deveron nosi ime po jadrnici, zgrajeni v Veliki Britaniji za lošinjsko družino Cosulich – vedno s kapitani iz Lošinja za krmilom. Vsako podrobnost v kuhinji in za mizo pripravimo z enako skrbnostjo, s kakršno so ti kapitani pluli po daljnih morjih.", "UA": "Deveron названо на честь вітрильника, збудованого у Великій Британії для лошинської родини Козулич, — завжди з капітанами з Лошиня за штурвалом. Кожну деталь на кухні та за столом ми продумуємо з тією ж турботою, з якою ці капітани борознили далекі моря.", "RO": "Deveron poartă numele unui velier construit în Marea Britanie pentru familia Cosulich din Lošinj — mereu cu căpitani din Lošinj la cârmă. Pregătim fiecare detaliu în bucătărie și la masă cu aceeași grijă cu care acei căpitani navigau pe mări îndepărtate."}, "about_hl": {"HR": "Lošinjskim jedrima oko svijeta 🚢", "EN": "Around the world under Lošinj sails 🚢", "DE": "Mit Lošinjer Segeln um die Welt 🚢", "IT": "Intorno al mondo con le vele di Lussino 🚢", "FR": "Autour du monde sous les voiles de Lošinj 🚢", "ES": "Alrededor del mundo con velas de Lošinj 🚢", "PT": "À volta do mundo com velas de Lošinj 🚢", "NL": "Met Lošinjse zeilen de wereld rond 🚢", "PL": "Dookoła świata pod żaglami z Lošinja 🚢", "RU": "Вокруг света под парусами Лошиня 🚢", "HU": "Lošinji vitorlákkal a világ körül 🚢", "CS": "Kolem světa pod lošinjskými plachtami 🚢", "SK": "Okolo sveta pod lošinjskými plachtami 🚢", "SL": "Z lošinjskimi jadri okoli sveta 🚢", "UA": "Навколо світу під вітрилами Лошиня 🚢", "RO": "În jurul lumii cu pânzele din Lošinj 🚢"}};
-Object.assign(UI, UI_EXTRA, {"open_now": {"HR": "Otvoreno", "EN": "Open now", "DE": "Jetzt geöffnet", "IT": "Aperto ora", "FR": "Ouvert", "ES": "Abierto ahora", "PT": "Aberto agora", "NL": "Nu open", "PL": "Otwarte teraz", "RU": "Сейчас открыто", "HU": "Most nyitva", "CS": "Nyní otevřeno", "SK": "Teraz otvorené", "SL": "Zdaj odprto", "UA": "Зараз відчинено", "RO": "Deschis acum"}, "closed_now": {"HR": "Zatvoreno", "EN": "Closed", "DE": "Geschlossen", "IT": "Chiuso", "FR": "Fermé", "ES": "Cerrado", "PT": "Fechado", "NL": "Gesloten", "PL": "Zamknięte", "RU": "Закрыто", "HU": "Zárva", "CS": "Zavřeno", "SK": "Zatvorené", "SL": "Zaprto", "UA": "Зачинено", "RO": "Închis"}, "opens_at": {"HR": "Otvaramo u", "EN": "Opens at", "DE": "Öffnet um", "IT": "Apre alle", "FR": "Ouvre à", "ES": "Abre a las", "PT": "Abre às", "NL": "Opent om", "PL": "Otwarcie o", "RU": "Открываемся в", "HU": "Nyitás:", "CS": "Otevíráme v", "SK": "Otvárame o", "SL": "Odpremo ob", "UA": "Відчиняємося о", "RO": "Deschidem la"}, "kitchen_closed": {"HR": "Kuhinja zatvorena", "EN": "Kitchen closed", "DE": "Küche geschlossen", "IT": "Cucina chiusa", "FR": "Cuisine fermée", "ES": "Cocina cerrada", "PT": "Cozinha fechada", "NL": "Keuken gesloten", "PL": "Kuchnia zamknięta", "RU": "Кухня закрыта", "HU": "A konyha zárva", "CS": "Kuchyně zavřena", "SK": "Kuchyňa zatvorená", "SL": "Kuhinja zaprta", "UA": "Кухня зачинена", "RO": "Bucătăria închisă"}, "off_season": {"HR": "Izvan sezone", "EN": "Out of season", "DE": "Außerhalb der Saison", "IT": "Fuori stagione", "FR": "Hors saison", "ES": "Fuera de temporada", "PT": "Fora de época", "NL": "Buiten het seizoen", "PL": "Poza sezonem", "RU": "Вне сезона", "HU": "Szezonon kívül", "CS": "Mimo sezónu", "SK": "Mimo sezóny", "SL": "Izven sezone", "UA": "Поза сезоном", "RO": "În afara sezonului"}, "search_ph": {"HR": "Pretraži meni…", "EN": "Search the menu…", "DE": "Speisekarte durchsuchen…", "IT": "Cerca nel menu…", "FR": "Rechercher dans le menu…", "ES": "Buscar en el menú…", "PT": "Pesquisar no menu…", "NL": "Zoek in het menu…", "PL": "Szukaj w menu…", "RU": "Поиск по меню…", "HU": "Keresés a menüben…", "CS": "Hledat v menu…", "SK": "Hľadať v menu…", "SL": "Iskanje po meniju…", "UA": "Пошук у меню…", "RO": "Caută în meniu…"}, "no_results": {"HR": "Nema rezultata", "EN": "No results", "DE": "Keine Ergebnisse", "IT": "Nessun risultato", "FR": "Aucun résultat", "ES": "Sin resultados", "PT": "Sem resultados", "NL": "Geen resultaten", "PL": "Brak wyników", "RU": "Ничего не найдено", "HU": "Nincs találat", "CS": "Žádné výsledky", "SK": "Žiadne výsledky", "SL": "Ni zadetkov", "UA": "Нічого не знайдено", "RO": "Niciun rezultat"}}, {"every_day": {"HR": "svaki dan", "EN": "every day", "DE": "täglich", "IT": "tutti i giorni", "FR": "tous les jours", "ES": "todos los días", "PT": "todos os dias", "NL": "elke dag", "PL": "codziennie", "RU": "ежедневно", "HU": "minden nap", "CS": "denně", "SK": "denne", "SL": "vsak dan", "UA": "щодня", "RO": "zilnic"}, "except_xmas": {"HR": "osim 25.12.", "EN": "except 25 Dec", "DE": "außer 25.12.", "IT": "tranne il 25/12", "FR": "sauf le 25/12", "ES": "excepto el 25/12", "PT": "exceto 25/12", "NL": "behalve 25 dec", "PL": "oprócz 25.12", "RU": "кроме 25.12", "HU": "kivéve dec. 25.", "CS": "kromě 25. 12.", "SK": "okrem 25. 12.", "SL": "razen 25. 12.", "UA": "крім 25.12", "RO": "cu excepția 25.12"}, "closed_today": {"HR": "Danas zatvoreno", "EN": "Closed today", "DE": "Heute geschlossen", "IT": "Oggi chiuso", "FR": "Fermé aujourd'hui", "ES": "Hoy cerrado", "PT": "Hoje fechado", "NL": "Vandaag gesloten", "PL": "Dziś zamknięte", "RU": "Сегодня закрыто", "HU": "Ma zárva", "CS": "Dnes zavřeno", "SK": "Dnes zatvorené", "SL": "Danes zaprto", "UA": "Сьогодні зачинено", "RO": "Închis azi"}, "gm_score": {"HR": "12,5/20 bodova", "EN": "12.5/20 points", "DE": "12,5/20 Punkte", "IT": "12,5/20 punti", "FR": "12,5/20 points", "ES": "12,5/20 puntos", "PT": "12,5/20 pontos", "NL": "12,5/20 punten", "PL": "12,5/20 punktów", "RU": "12,5/20 баллов", "HU": "12,5/20 pont", "CS": "12,5/20 bodů", "SK": "12,5/20 bodov", "SL": "12,5/20 točk", "UA": "12,5/20 балів", "RO": "12,5/20 puncte"}});
+Object.assign(UI, UI_EXTRA, {"open_now": {"HR": "Otvoreno", "EN": "Open now", "DE": "Jetzt geöffnet", "IT": "Aperto ora", "FR": "Ouvert", "ES": "Abierto ahora", "PT": "Aberto agora", "NL": "Nu open", "PL": "Otwarte teraz", "RU": "Сейчас открыто", "HU": "Most nyitva", "CS": "Nyní otevřeno", "SK": "Teraz otvorené", "SL": "Zdaj odprto", "UA": "Зараз відчинено", "RO": "Deschis acum"}, "closed_now": {"HR": "Zatvoreno", "EN": "Closed", "DE": "Geschlossen", "IT": "Chiuso", "FR": "Fermé", "ES": "Cerrado", "PT": "Fechado", "NL": "Gesloten", "PL": "Zamknięte", "RU": "Закрыто", "HU": "Zárva", "CS": "Zavřeno", "SK": "Zatvorené", "SL": "Zaprto", "UA": "Зачинено", "RO": "Închis"}, "opens_at": {"HR": "Otvaramo u", "EN": "Opens at", "DE": "Öffnet um", "IT": "Apre alle", "FR": "Ouvre à", "ES": "Abre a las", "PT": "Abre às", "NL": "Opent om", "PL": "Otwarcie o", "RU": "Открываемся в", "HU": "Nyitás:", "CS": "Otevíráme v", "SK": "Otvárame o", "SL": "Odpremo ob", "UA": "Відчиняємося о", "RO": "Deschidem la"}, "kitchen_closed": {"HR": "Kuhinja zatvorena", "EN": "Kitchen closed", "DE": "Küche geschlossen", "IT": "Cucina chiusa", "FR": "Cuisine fermée", "ES": "Cocina cerrada", "PT": "Cozinha fechada", "NL": "Keuken gesloten", "PL": "Kuchnia zamknięta", "RU": "Кухня закрыта", "HU": "A konyha zárva", "CS": "Kuchyně zavřena", "SK": "Kuchyňa zatvorená", "SL": "Kuhinja zaprta", "UA": "Кухня зачинена", "RO": "Bucătăria închisă"}, "off_season": {"HR": "Izvan sezone", "EN": "Out of season", "DE": "Außerhalb der Saison", "IT": "Fuori stagione", "FR": "Hors saison", "ES": "Fuera de temporada", "PT": "Fora de época", "NL": "Buiten het seizoen", "PL": "Poza sezonem", "RU": "Вне сезона", "HU": "Szezonon kívül", "CS": "Mimo sezónu", "SK": "Mimo sezóny", "SL": "Izven sezone", "UA": "Поза сезоном", "RO": "În afara sezonului"}, "search_ph": {"HR": "Pretraži meni…", "EN": "Search the menu…", "DE": "Speisekarte durchsuchen…", "IT": "Cerca nel menu…", "FR": "Rechercher dans le menu…", "ES": "Buscar en el menú…", "PT": "Pesquisar no menu…", "NL": "Zoek in het menu…", "PL": "Szukaj w menu…", "RU": "Поиск по меню…", "HU": "Keresés a menüben…", "CS": "Hledat v menu…", "SK": "Hľadať v menu…", "SL": "Iskanje po meniju…", "UA": "Пошук у меню…", "RO": "Caută în meniu…"}, "no_results": {"HR": "Nema rezultata", "EN": "No results", "DE": "Keine Ergebnisse", "IT": "Nessun risultato", "FR": "Aucun résultat", "ES": "Sin resultados", "PT": "Sem resultados", "NL": "Geen resultaten", "PL": "Brak wyników", "RU": "Ничего не найдено", "HU": "Nincs találat", "CS": "Žádné výsledky", "SK": "Žiadne výsledky", "SL": "Ni zadetkov", "UA": "Нічого не знайдено", "RO": "Niciun rezultat"}}, {"every_day": {"HR": "svaki dan", "EN": "every day", "DE": "täglich", "IT": "tutti i giorni", "FR": "tous les jours", "ES": "todos los días", "PT": "todos os dias", "NL": "elke dag", "PL": "codziennie", "RU": "ежедневно", "HU": "minden nap", "CS": "denně", "SK": "denne", "SL": "vsak dan", "UA": "щодня", "RO": "zilnic"}, "except_xmas": {"HR": "osim 25.12.", "EN": "except 25 Dec", "DE": "außer 25.12.", "IT": "tranne il 25/12", "FR": "sauf le 25/12", "ES": "excepto el 25/12", "PT": "exceto 25/12", "NL": "behalve 25 dec", "PL": "oprócz 25.12", "RU": "кроме 25.12", "HU": "kivéve dec. 25.", "CS": "kromě 25. 12.", "SK": "okrem 25. 12.", "SL": "razen 25. 12.", "UA": "крім 25.12", "RO": "cu excepția 25.12"}, "closed_today": {"HR": "Danas zatvoreno", "EN": "Closed today", "DE": "Heute geschlossen", "IT": "Oggi chiuso", "FR": "Fermé aujourd'hui", "ES": "Hoy cerrado", "PT": "Hoje fechado", "NL": "Vandaag gesloten", "PL": "Dziś zamknięte", "RU": "Сегодня закрыто", "HU": "Ma zárva", "CS": "Dnes zavřeno", "SK": "Dnes zatvorené", "SL": "Danes zaprto", "UA": "Сьогодні зачинено", "RO": "Închis azi"}, "gm_score": {"HR": "12,5/20 bodova", "EN": "12.5/20 points", "DE": "12,5/20 Punkte", "IT": "12,5/20 punti", "FR": "12,5/20 points", "ES": "12,5/20 puntos", "PT": "12,5/20 pontos", "NL": "12,5/20 punten", "PL": "12,5/20 punktów", "RU": "12,5/20 баллов", "HU": "12,5/20 pont", "CS": "12,5/20 bodů", "SK": "12,5/20 bodov", "SL": "12,5/20 točk", "UA": "12,5/20 балів", "RO": "12,5/20 puncte"}}, {"order": {"HR": "Narudžba", "EN": "Order", "DE": "Bestellung", "IT": "Ordine", "FR": "Commande", "ES": "Pedido", "PT": "Pedido", "NL": "Bestelling", "PL": "Zamówienie", "RU": "Заказ", "HU": "Rendelés", "CS": "Objednávka", "SK": "Objednávka", "SL": "Naročilo", "UA": "Замовлення", "RO": "Comandă"}, "show_waiter": {"HR": "Pokaži konobaru", "EN": "Show to waiter", "DE": "Dem Kellner zeigen", "IT": "Mostra al cameriere", "FR": "Montrer au serveur", "ES": "Mostrar al camarero", "PT": "Mostrar ao empregado", "NL": "Toon aan de ober", "PL": "Pokaż kelnerowi", "RU": "Показать официанту", "HU": "Mutassa meg a pincérnek", "CS": "Ukázat číšníkovi", "SK": "Ukázať čašníkovi", "SL": "Pokaži natakarju", "UA": "Показати офіціанту", "RO": "Arată ospătarului"}, "clear_order": {"HR": "Isprazni", "EN": "Clear", "DE": "Leeren", "IT": "Svuota", "FR": "Vider", "ES": "Vaciar", "PT": "Limpar", "NL": "Leegmaken", "PL": "Wyczyść", "RU": "Очистить", "HU": "Törlés", "CS": "Vyprázdnit", "SK": "Vyprázdniť", "SL": "Izprazni", "UA": "Очистити", "RO": "Golește"}, "note_ph": {"HR": "Napomena (npr. bez luka)…", "EN": "Note (e.g. no onions)…", "DE": "Hinweis (z. B. ohne Zwiebeln)…", "IT": "Nota (es. senza cipolla)…", "FR": "Remarque (ex. sans oignon)…", "ES": "Nota (p. ej. sin cebolla)…", "PT": "Nota (ex. sem cebola)…", "NL": "Opmerking (bijv. zonder ui)…", "PL": "Uwagi (np. bez cebuli)…", "RU": "Комментарий (напр. без лука)…", "HU": "Megjegyzés (pl. hagyma nélkül)…", "CS": "Poznámka (např. bez cibule)…", "SK": "Poznámka (napr. bez cibule)…", "SL": "Opomba (npr. brez čebule)…", "UA": "Коментар (напр. без цибулі)…", "RO": "Notă (ex. fără ceapă)…"}, "total": {"HR": "Ukupno", "EN": "Total", "DE": "Gesamt", "IT": "Totale", "FR": "Total", "ES": "Total", "PT": "Total", "NL": "Totaal", "PL": "Razem", "RU": "Итого", "HU": "Összesen", "CS": "Celkem", "SK": "Spolu", "SL": "Skupaj", "UA": "Разом", "RO": "Total"}, "table": {"HR": "Stol", "EN": "Table", "DE": "Tisch", "IT": "Tavolo", "FR": "Table", "ES": "Mesa", "PT": "Mesa", "NL": "Tafel", "PL": "Stolik", "RU": "Стол", "HU": "Asztal", "CS": "Stůl", "SK": "Stôl", "SL": "Miza", "UA": "Стіл", "RO": "Masa"}, "empty_order": {"HR": "Narudžba je prazna. Dodajte jela i pića tipkom +.", "EN": "Your order is empty. Add dishes and drinks with +.", "DE": "Ihre Bestellung ist leer. Fügen Sie Speisen und Getränke mit + hinzu.", "IT": "Il tuo ordine è vuoto. Aggiungi piatti e bevande con +.", "FR": "Votre commande est vide. Ajoutez plats et boissons avec +.", "ES": "Tu pedido está vacío. Añade platos y bebidas con +.", "PT": "O seu pedido está vazio. Adicione pratos e bebidas com +.", "NL": "Uw bestelling is leeg. Voeg gerechten en drankjes toe met +.", "PL": "Zamówienie jest puste. Dodaj dania i napoje przyciskiem +.", "RU": "Заказ пуст. Добавьте блюда и напитки кнопкой +.", "HU": "A rendelés üres. Ételeket és italokat a + gombbal adhat hozzá.", "CS": "Objednávka je prázdná. Jídla a nápoje přidáte tlačítkem +.", "SK": "Objednávka je prázdna. Jedlá a nápoje pridáte tlačidlom +.", "SL": "Naročilo je prazno. Jedi in pijače dodate z gumbom +.", "UA": "Замовлення порожнє. Додайте страви та напої кнопкою +.", "RO": "Comanda este goală. Adăugați preparate și băuturi cu +."}, "order_note": {"HR": "Narudžbu potvrđuje konobar. Pokažite mu ovaj ekran.", "EN": "The waiter confirms your order. Please show them this screen.", "DE": "Der Kellner bestätigt Ihre Bestellung. Bitte zeigen Sie ihm diesen Bildschirm.", "IT": "Il cameriere conferma l'ordine. Mostragli questa schermata.", "FR": "Le serveur confirme votre commande. Montrez-lui cet écran.", "ES": "El camarero confirma su pedido. Muéstrele esta pantalla.", "PT": "O empregado confirma o seu pedido. Mostre-lhe este ecrã.", "NL": "De ober bevestigt uw bestelling. Toon hem dit scherm.", "PL": "Kelner potwierdza zamówienie. Pokaż mu ten ekran.", "RU": "Официант подтвердит заказ. Покажите ему этот экран.", "HU": "A pincér megerősíti a rendelést. Mutassa meg neki ezt a képernyőt.", "CS": "Číšník objednávku potvrdí. Ukažte mu tuto obrazovku.", "SK": "Čašník objednávku potvrdí. Ukážte mu túto obrazovku.", "SL": "Natakar potrdi naročilo. Pokažite mu ta zaslon.", "UA": "Офіціант підтвердить замовлення. Покажіть йому цей екран.", "RO": "Ospătarul confirmă comanda. Arătați-i acest ecran."}, "back": {"HR": "Natrag", "EN": "Back", "DE": "Zurück", "IT": "Indietro", "FR": "Retour", "ES": "Volver", "PT": "Voltar", "NL": "Terug", "PL": "Wstecz", "RU": "Назад", "HU": "Vissza", "CS": "Zpět", "SK": "Späť", "SL": "Nazaj", "UA": "Назад", "RO": "Înapoi"}, "added": {"HR": "Dodano", "EN": "Added", "DE": "Hinzugefügt", "IT": "Aggiunto", "FR": "Ajouté", "ES": "Añadido", "PT": "Adicionado", "NL": "Toegevoegd", "PL": "Dodano", "RU": "Добавлено", "HU": "Hozzáadva", "CS": "Přidáno", "SK": "Pridané", "SL": "Dodano", "UA": "Додано", "RO": "Adăugat"}});
 // Allergen names per language, index 0 = allergen 1
 const AL_I18N = {"HR": ["Žitarice (gluten)", "Rakovi", "Jaja", "Riba", "Kikiriki", "Soja", "Mlijeko (laktoza)", "Orašasti plodovi", "Celer", "Gorušica", "Sezam", "Sulfiti", "Vučika", "Mekušci"], "EN": ["Cereals (gluten)", "Crustaceans", "Eggs", "Fish", "Peanuts", "Soy", "Milk (lactose)", "Nuts", "Celery", "Mustard", "Sesame", "Sulphites", "Lupin", "Molluscs"], "DE": ["Getreide (Gluten)", "Krebstiere", "Eier", "Fisch", "Erdnüsse", "Soja", "Milch (Laktose)", "Schalenfrüchte", "Sellerie", "Senf", "Sesam", "Sulfite", "Lupinen", "Weichtiere"], "IT": ["Cereali (glutine)", "Crostacei", "Uova", "Pesce", "Arachidi", "Soia", "Latte (lattosio)", "Frutta a guscio", "Sedano", "Senape", "Sesamo", "Solfiti", "Lupini", "Molluschi"], "FR": ["Céréales (gluten)", "Crustacés", "Œufs", "Poisson", "Arachides", "Soja", "Lait (lactose)", "Fruits à coque", "Céleri", "Moutarde", "Sésame", "Sulfites", "Lupin", "Mollusques"], "ES": ["Cereales (gluten)", "Crustáceos", "Huevos", "Pescado", "Cacahuetes", "Soja", "Leche (lactosa)", "Frutos de cáscara", "Apio", "Mostaza", "Sésamo", "Sulfitos", "Altramuces", "Moluscos"], "PT": ["Cereais (glúten)", "Crustáceos", "Ovos", "Peixe", "Amendoins", "Soja", "Leite (lactose)", "Frutos de casca rija", "Aipo", "Mostarda", "Sésamo", "Sulfitos", "Tremoço", "Moluscos"], "NL": ["Granen (gluten)", "Schaaldieren", "Eieren", "Vis", "Pinda's", "Soja", "Melk (lactose)", "Noten", "Selderij", "Mosterd", "Sesam", "Sulfiet", "Lupine", "Weekdieren"], "PL": ["Zboża (gluten)", "Skorupiaki", "Jaja", "Ryby", "Orzeszki ziemne", "Soja", "Mleko (laktoza)", "Orzechy", "Seler", "Gorczyca", "Sezam", "Siarczyny", "Łubin", "Mięczaki"], "RU": ["Злаки (глютен)", "Ракообразные", "Яйца", "Рыба", "Арахис", "Соя", "Молоко (лактоза)", "Орехи", "Сельдерей", "Горчица", "Кунжут", "Сульфиты", "Люпин", "Моллюски"], "HU": ["Gabonafélék (glutén)", "Rákfélék", "Tojás", "Hal", "Földimogyoró", "Szója", "Tej (laktóz)", "Diófélék", "Zeller", "Mustár", "Szezám", "Szulfitok", "Csillagfürt", "Puhatestűek"], "CS": ["Obiloviny (lepek)", "Korýši", "Vejce", "Ryby", "Arašídy", "Sója", "Mléko (laktóza)", "Skořápkové plody", "Celer", "Hořčice", "Sezam", "Siřičitany", "Vlčí bob", "Měkkýši"], "SK": ["Obilniny (lepok)", "Kôrovce", "Vajcia", "Ryby", "Arašidy", "Sója", "Mlieko (laktóza)", "Orechy", "Zeler", "Horčica", "Sezam", "Siričitany", "Vlčí bôb", "Mäkkýše"], "SL": ["Žita (gluten)", "Raki", "Jajca", "Ribe", "Arašidi", "Soja", "Mleko (laktoza)", "Oreščki", "Zelena", "Gorčično seme", "Sezam", "Sulfiti", "Volčji bob", "Mehkužci"], "UA": ["Злаки (глютен)", "Ракоподібні", "Яйця", "Риба", "Арахіс", "Соя", "Молоко (лактоза)", "Горіхи", "Селера", "Гірчиця", "Кунжут", "Сульфіти", "Люпин", "Молюски"], "RO": ["Cereale (gluten)", "Crustacee", "Ouă", "Pește", "Arahide", "Soia", "Lapte (lactoză)", "Fructe cu coajă", "Țelină", "Muștar", "Susan", "Sulfiți", "Lupin", "Moluște"]};
 const t=key=>(UI[key]&&(UI[key][currentLang]||UI[key].HR))||key;
@@ -699,7 +776,7 @@ function rowsToItems(rows){
     const name={},desc={};
     for(const l of LANGS){name[l]=get(r,'Naziv '+l);desc[l]=get(r,'Opis '+l);}
     const p=fmtPrice(get(r,'Cijena'));
-    items.push({tab,cat:get(r,'Kategorija'),name,desc,vol:get(r,'Količina'),p,
+    items.push({id:items.length,tab,cat:get(r,'Kategorija'),name,desc,vol:get(r,'Količina'),p,
       sp:get(r,'Sidrena cijena')?fmtPrice(get(r,'Sidrena cijena')):p,
       al:(get(r,'Alergeni').match(/\d+/g)||[]).filter(x=>+x>=1&&+x<=14),
       wine:get(r,'Vino uz jelo')});
@@ -746,7 +823,7 @@ function itemHtml(i,filterable){
   const wine=i.wine?`<div class="wine-pair">🍷 ${t('wine_pair')}: ${esc(i.wine)}</div>`:'';
   const al=i.al.length?`<div class="item-al">${i.al.map(x=>`<span class="al-tag" title="${esc(alName(+x))}">${AL_ICONS[x]||'⚠'} ${x}</span>`).join('')}</div>`:'';
   const attrs=filterable?` data-cat="${esc(i.cat)}" data-al="${i.al.join(',')}"`:'';
-  return `<div class="menu-item"${attrs}><div class="mi-info"><div class="mi-name">${esc(nm(i))}${vol}${prem}</div>${d?`<div class="mi-desc">${esc(d)}</div>`:''}${wine}${al}</div>${priceHtml(i)}</div>`;
+  return `<div class="menu-item"${attrs}><div class="mi-info"><div class="mi-name">${esc(nm(i))}${vol}${prem}</div>${d?`<div class="mi-desc">${esc(d)}</div>`:''}${wine}${al}</div>${priceHtml(i)}${TABLE?`<button class="add-btn" onclick="addToOrder(${i.id},this)" aria-label="+">+</button>`:''}</div>`;
 }
 
 function renderTab(tab,el,filterable){
@@ -933,8 +1010,98 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
+
+// ---- Table ordering ----
+// A table's QR code opens the site with ?stol=N. Guests then get a + button on every
+// item and an order list they show to the waiter, who enters it into the till.
+// Nothing is sent anywhere; the order lives in the guest's browser for 4 hours.
+const TABLE_COUNT=40;
+const TABLE=(()=>{
+  const n=parseInt(new URLSearchParams(location.search).get('stol'),10);
+  if(n>=1&&n<=TABLE_COUNT){try{sessionStorage.setItem('deveron-table',n);}catch(e){} return n;}
+  try{const s=parseInt(sessionStorage.getItem('deveron-table'),10);return s>=1&&s<=TABLE_COUNT?s:null;}catch(e){return null;}
+})();
+const ORDER_KEY='deveron-order-'+TABLE, ORDER_TTL=4*3600*1000;
+let ORDER={lines:{},note:'',ts:0};   // lines: itemKey -> qty
+const itemKey=i=>i.tab+'|'+i.name.HR;
+const priceNum=p=>{const m=(p||'').match(/\d+(?:,\d+)?/);return m?parseFloat(m[0].replace(',','.')):0;};
+const fmtEur=x=>x.toFixed(2).replace('.',',')+' €';
+
+function loadOrder(){
+  try{
+    const o=JSON.parse(localStorage.getItem(ORDER_KEY)||'null');
+    if(o&&Date.now()-o.ts<ORDER_TTL) ORDER=o;
+  }catch(e){}
+}
+function saveOrder(){
+  ORDER.note=document.getElementById('order-note').value;
+  ORDER.ts=Date.now();
+  try{localStorage.setItem(ORDER_KEY,JSON.stringify(ORDER));}catch(e){}
+}
+function orderItems(){
+  const byKey=new Map(ITEMS.map(i=>[itemKey(i),i]));
+  return Object.entries(ORDER.lines).map(([k,q])=>({item:byKey.get(k),qty:q})).filter(x=>x.item&&x.qty>0);
+}
+function orderTotal(list){
+  let sum=0,range=false;
+  for(const {item,qty} of list){sum+=priceNum(item.p)*qty; if(item.p.includes('–')) range=true;}
+  return (range?'≥ ':'')+fmtEur(sum);
+}
+function addToOrder(id,btn){
+  const i=ITEMS[id]; if(!i) return;
+  const k=itemKey(i); ORDER.lines[k]=(ORDER.lines[k]||0)+1; saveOrder(); updateOrderBar();
+  if(btn){btn.classList.remove('bump');void btn.offsetWidth;btn.classList.add('bump');}
+}
+function changeQty(k,d){
+  ORDER.lines[k]=Math.max(0,(ORDER.lines[k]||0)+d);
+  if(!ORDER.lines[k]) delete ORDER.lines[k];
+  saveOrder(); renderOrder(); updateOrderBar();
+}
+function clearOrder(){ORDER={lines:{},note:'',ts:Date.now()};document.getElementById('order-note').value='';saveOrder();renderOrder();updateOrderBar();}
+function updateOrderBar(){
+  if(!TABLE) return;
+  const list=orderItems();
+  document.getElementById('order-count').textContent=list.reduce((a,x)=>a+x.qty,0)+'×';
+  document.getElementById('order-sum').textContent=orderTotal(list);
+}
+function renderOrder(){
+  const list=orderItems();
+  document.getElementById('order-lines').innerHTML=list.length?list.map(({item,qty})=>{
+    const k=esc(itemKey(item)).replace(/'/g,'&#39;');
+    return `<div class="o-line"><div class="o-name">${esc(nm(item))}${item.vol?` <span class="mi-vol">(${esc(item.vol)})</span>`:''}</div>
+      <div class="o-qty"><button onclick="changeQty(this.dataset.k,-1)" data-k="${k}" aria-label="−">−</button><b>${qty}</b><button onclick="changeQty(this.dataset.k,1)" data-k="${k}" aria-label="+">+</button></div>
+      <div class="o-price">${fmtEur(priceNum(item.p)*qty)}</div></div>`;
+  }).join(''):`<div class="o-empty">${t('empty_order')}</div>`;
+  document.getElementById('order-total').textContent=orderTotal(list);
+  document.querySelector('#order-edit .o-primary').disabled=!list.length;
+}
+function openOrder(){document.getElementById('order-note').value=ORDER.note||'';renderOrder();document.getElementById('order-overlay').hidden=false;}
+function closeOrder(){document.getElementById('order-overlay').hidden=true;hideWaiter();}
+// Waiter view: always Croatian names, big and high-contrast
+function showWaiter(){
+  saveOrder();
+  const list=orderItems(); if(!list.length) return;
+  const now=new Date();
+  document.getElementById('w-meta').textContent=`${now.toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'})} · gost: ${LANG_FLAGS[currentLang]||''} ${currentLang}`;
+  document.getElementById('w-lines').innerHTML=list.map(({item,qty})=>
+    `<div class="w-line"><b>${qty}×</b><span>${esc(item.name.HR)}${item.vol?` (${esc(item.vol)})`:''}</span><i>${fmtEur(priceNum(item.p)*qty)}</i></div>`).join('');
+  document.getElementById('w-note').textContent=ORDER.note?'Napomena: '+ORDER.note:'';
+  document.getElementById('w-total').textContent=orderTotal(list);
+  document.getElementById('order-edit').hidden=true;
+  document.getElementById('waiter-view').hidden=false;
+}
+function waiterDone(){clearOrder();closeOrder();}
+function hideWaiter(){document.getElementById('waiter-view').hidden=true;document.getElementById('order-edit').hidden=false;}
+if(TABLE){
+  loadOrder();
+  document.body.classList.add('has-order');
+  document.getElementById('order-bar').hidden=false;
+  document.querySelectorAll('.o-table').forEach(e=>e.textContent=TABLE);
+}
+
 loadMenu().then(items=>{
   ITEMS=items;
+  updateOrderBar();
   if(document.getElementById('app').style.display==='block'){renderAll();route();}
 }).catch(e=>console.error('Menu could not be loaded',e));
 
