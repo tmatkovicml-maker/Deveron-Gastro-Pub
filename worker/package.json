@@ -1,0 +1,8 @@
+{
+  "name": "deveron-gastro-pub-worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0"
+  }
+}
