@@ -625,7 +625,7 @@ body.takeaway .o-show{display:none;}
     <button class="nav-btn" onclick="showPage('menu')" id="nav-menu"><span class="ni">🍽️</span><span id="nl-menu">Meni</span></button>
     <button class="nav-btn" onclick="showPage('alergeni')" id="nav-al"><span class="ni">⚠️</span><span id="nl-al">Alergeni</span></button>
     <button class="nav-btn" onclick="showPage('info')" id="nav-info"><span class="ni">ℹ️</span><span data-i18n="info">Info</span></button>
-    <button class="nav-btn" onclick="showPage('ai')" id="nav-ai"><span class="ni">🤖</span><span id="nl-ai">AI Chat</span></button>
+    <button class="nav-btn" onclick="showPage('ai')" id="nav-ai"><span class="ni">🤖</span><span id="nl-ai">AI</span></button>
     <a class="nav-btn" href="https://deveron-gastro-pub-1683645478.resos.com/booking" target="_blank" rel="noopener"><span class="ni">📅</span><span id="nl-res">Rezerviraj</span></a>
   </nav>
 </div>
@@ -761,7 +761,7 @@ function applyUI(lang){
   const flag=LANG_FLAGS[lang]||'🌐';
   document.getElementById('cur-lang-btn').innerHTML=flag+' '+lang;
   const s=(id,key)=>{const e=document.getElementById(id);if(e&&UI[key])e.textContent=UI[key][lang]||UI[key]['HR'];};
-  s('nl-home','home');s('nl-menu','menu');s('nl-al','allergens');s('nl-res','reserve');s('nl-ai','ai_chat');
+  s('nl-home','home');s('nl-menu','menu');s('nl-al','allergens');s('nl-res','reserve');
 s('qa-menu','menu');s('qa-al','allergens');s('qa-call','call');
   s('ic-hours','hours');s('ic-call','call');
   s('info-hours','hours');s('info-parking','parking');s('info-call','call');
