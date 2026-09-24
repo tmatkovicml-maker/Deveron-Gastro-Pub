@@ -1,23 +1,27 @@
-// Deveron orders: table orders, takeaway orders and the loyalty programme.
+// Deveron orders: table orders, takeaway orders and an anonymous loyalty card.
 //
 // Guests (from deveronpub.com):
 //   POST /api/order                    order from a table QR code
-//   POST /api/takeaway                 takeaway order (name, phone, pickup time)
+//   POST /api/takeaway                 takeaway order (name, phone, pickup time, optional loyalty card)
 //   GET  /api/takeaway/:id?token=…     {state: new|accepted|rejected|done, ready_at}
-//   GET  /api/loyalty?phone=…          loyalty discount for a phone number
+//   GET  /api/loyalty?card=DEV-XXXX-XXXX  discount and spend of a loyalty card
 // Waiter tablet (X-Waiter-Pin = WAITER_PIN):
 //   GET  /api/orders                   open table and takeaway orders
 //   POST /api/orders/:id/done          table order entered in the till
 //   POST /api/takeaway/:id/accept      {minutes}  accept with ready time
 //   POST /api/takeaway/:id/reject
-//   POST /api/takeaway/:id/done        collected and paid (adds to loyalty spend)
-// Owner (X-Admin-Pin = ADMIN_PIN):
-//   GET  /api/admin/customers          customers, spend, consents
-//   DELETE /api/admin/customers/:phone erase a customer (GDPR)
-// Pages: /  waiter tablet · /admin  customers and loyalty
+//   POST /api/takeaway/:id/done        collected and paid (adds to the loyalty card)
+// Admins (X-Admin-Pin = ADMIN_PIN or OWNER_PIN, two separate logins with the same rights):
+//   GET  /api/admin/orders?from=&to=   all table and takeaway orders in a period
+//   GET  /api/admin/cards              loyalty cards
+//   DELETE /api/admin/cards/:code
+// Pages: /  waiter tablet · /admin  orders and loyalty cards
 //
-// Loyalty tiers come from LOYALTY_TIERS, e.g. "100:10,300:15" = from 100 € spent 10 % off,
-// from 300 € 15 % off. Everything is stored in one Durable Object (SQLite).
+// Loyalty is anonymous: a card is only a random code kept on the guest's phone plus the
+// amount spent. Takeaway orders need a name and phone for pickup; these are removed after
+// 7 days, the anonymous order stays for the statistics. Tiers come from LOYALTY_TIERS,
+// e.g. "100:10,300:15" = from 100 € spent 10 % off, from 300 € 15 % off.
+// Everything is stored in one Durable Object (SQLite).
 import { DurableObject } from 'cloudflare:workers';
 import WAITER_PAGE from './waiter.html';
 import ADMIN_PAGE from './admin.html';
@@ -25,11 +29,12 @@ import ADMIN_PAGE from './admin.html';
 const SITE_ORIGINS = ['https://deveronpub.com', 'https://www.deveronpub.com'];
 const TABLES = 40;
 const HOUR = 3600 * 1000, DAY = 24 * HOUR;
+const KEEP_ORDERS = 365 * DAY, KEEP_CONTACT = 7 * DAY, KEEP_CARDS = 730 * DAY;
 const TAKEAWAY_FROM = 8 * 60, TAKEAWAY_UNTIL = 21 * 60 + 30;   // minutes of the day, Croatian time
 const CLOSED_DAYS = [[12, 25]];                                // [month, day]
 const DEFAULT_TIERS = '100:10,300:15';
+const CARD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';        // no 0/O, 1/I
 
-// Current Croatian time as {md: month*100+day, min: minutes since midnight}
 function zagrebNow() {
   const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Zagreb' }));
   return { month: d.getMonth() + 1, day: d.getDate(), min: d.getHours() * 60 + d.getMinutes() };
@@ -55,6 +60,17 @@ function nextTier(spent, env) {
   return t ? { at: t[0], discount: t[1] } : null;
 }
 
+function newCardCode() {
+  const b = crypto.getRandomValues(new Uint8Array(8));
+  const c = [...b].map(x => CARD_CHARS[x % CARD_CHARS.length]).join('');
+  return `DEV-${c.slice(0, 4)}-${c.slice(4)}`;
+}
+// "dev 7k3q9xw2" -> "DEV-7K3Q-9XW2"
+function normCard(v) {
+  const c = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^DEV/, '');
+  return c.length === 8 ? `DEV-${c.slice(0, 4)}-${c.slice(4)}` : '';
+}
+
 // "091 234 5678" / "+385 91…" / "0038591…" -> "+38591…"
 function normPhone(v) {
   let p = String(v || '').replace(/[^\d+]/g, '');
@@ -65,6 +81,7 @@ function normPhone(v) {
 }
 const euros = v => { const m = String(v || '').match(/\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(',', '.')) : 0; };
 const fmtEur = x => x.toFixed(2).replace('.', ',') + ' €';
+const toPay = (total, discount) => discount ? fmtEur(euros(total) * (100 - discount) / 100) : total;
 
 export class Orders extends DurableObject {
   constructor(ctx, env) {
@@ -74,24 +91,26 @@ export class Orders extends DurableObject {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, tbl INTEGER NOT NULL,
       lang TEXT, note TEXT, lines TEXT NOT NULL, total TEXT, done INTEGER NOT NULL DEFAULT 0)`);
+    const cols = this.sql.exec('PRAGMA table_info(orders)').toArray().map(c => c.name);
+    if (!cols.includes('done_at')) this.sql.exec('ALTER TABLE orders ADD COLUMN done_at INTEGER');
     this.sql.exec(`CREATE TABLE IF NOT EXISTS limits (k TEXT NOT NULL, at INTEGER NOT NULL)`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS takeaway (
       id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, token TEXT NOT NULL,
-      name TEXT, phone TEXT, email TEXT, pickup TEXT, lang TEXT, note TEXT, lines TEXT NOT NULL,
-      total TEXT, discount INTEGER NOT NULL DEFAULT 0, loyalty INTEGER NOT NULL DEFAULT 0,
+      name TEXT, phone TEXT, pickup TEXT, lang TEXT, note TEXT, lines TEXT NOT NULL,
+      total TEXT, discount INTEGER NOT NULL DEFAULT 0, card TEXT,
       status TEXT NOT NULL DEFAULT 'new', ready_at INTEGER, closed INTEGER)`);
-    this.sql.exec(`CREATE TABLE IF NOT EXISTS customers (
-      phone TEXT PRIMARY KEY, name TEXT, email TEXT, loyalty INTEGER NOT NULL DEFAULT 0,
-      marketing INTEGER NOT NULL DEFAULT 0, consent_at INTEGER, spent REAL NOT NULL DEFAULT 0,
-      orders INTEGER NOT NULL DEFAULT 0, created INTEGER, last_order INTEGER)`);
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS cards (
+      code TEXT PRIMARY KEY, spent REAL NOT NULL DEFAULT 0, orders INTEGER NOT NULL DEFAULT 0,
+      created INTEGER NOT NULL, last_used INTEGER)`);
   }
 
   cleanup(now) {
-    this.sql.exec('DELETE FROM orders WHERE created < ?', now - DAY);
     this.sql.exec('DELETE FROM limits WHERE at < ?', now - HOUR);
-    this.sql.exec('DELETE FROM takeaway WHERE created < ?', now - 30 * DAY);
-    // Customers who have not ordered for 2 years are removed
-    this.sql.exec('DELETE FROM customers WHERE COALESCE(last_order, created) < ?', now - 730 * DAY);
+    this.sql.exec('DELETE FROM orders WHERE created < ?', now - KEEP_ORDERS);
+    this.sql.exec('DELETE FROM takeaway WHERE created < ?', now - KEEP_ORDERS);
+    // Name and phone are only needed for pickup
+    this.sql.exec("UPDATE takeaway SET name = '', phone = '' WHERE created < ? AND phone != ''", now - KEEP_CONTACT);
+    this.sql.exec('DELETE FROM cards WHERE COALESCE(last_used, created) < ?', now - KEEP_CARDS);
   }
 
   count(k, since) {
@@ -113,14 +132,14 @@ export class Orders extends DurableObject {
     return { id: row.id };
   }
 
-  customer(phone) {
-    return this.sql.exec('SELECT * FROM customers WHERE phone = ?', phone).toArray()[0] || null;
+  card(code) {
+    return code ? this.sql.exec('SELECT * FROM cards WHERE code = ?', code).toArray()[0] || null : null;
   }
 
-  loyalty(phone) {
-    const c = this.customer(phone);
-    if (!c || !c.loyalty) return { member: false, discount: 0 };
-    return { member: true, discount: discountFor(c.spent, this.env), next: nextTier(c.spent, this.env) };
+  loyalty(code) {
+    const c = this.card(code);
+    if (!c) return { valid: false };
+    return { valid: true, code: c.code, spent: c.spent, discount: discountFor(c.spent, this.env), next: nextTier(c.spent, this.env) };
   }
 
   addTakeaway(o, ip) {
@@ -130,30 +149,24 @@ export class Orders extends DurableObject {
     if (this.count('p:' + o.phone, now - HOUR) >= 3 || this.count('tip:' + ip, now - 10 * 60 * 1000) >= 20) return { error: 'too_many', status: 429 };
     this.sql.exec('INSERT INTO limits (k, at) VALUES (?, ?), (?, ?)', 'p:' + o.phone, now, 'tip:' + ip, now);
 
-    let c = this.customer(o.phone);
-    if (o.loyalty || o.marketing) {
-      if (!c) {
-        this.sql.exec('INSERT INTO customers (phone, name, email, loyalty, marketing, consent_at, created) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          o.phone, o.name, o.email, o.loyalty ? 1 : 0, o.marketing ? 1 : 0, now, now);
-      } else {
-        this.sql.exec('UPDATE customers SET name = ?, email = COALESCE(NULLIF(?, \'\'), email), loyalty = ?, marketing = ?, consent_at = ? WHERE phone = ?',
-          o.name, o.email, o.loyalty ? 1 : 0, o.marketing ? 1 : 0, now, o.phone);
+    let card = null;
+    if (o.loyalty) {
+      card = this.card(o.card);
+      if (!card) {
+        let code;
+        do { code = newCardCode(); } while (this.card(code));
+        this.sql.exec('INSERT INTO cards (code, created) VALUES (?, ?)', code, now);
+        card = this.card(code);
       }
-      c = this.customer(o.phone);
-    } else if (c) {
-      // Guest unticked both boxes: consent withdrawn
-      this.sql.exec('UPDATE customers SET loyalty = 0, marketing = 0 WHERE phone = ?', o.phone);
-      c = this.customer(o.phone);
     }
-    const member = !!(c && c.loyalty);
-    const discount = member ? discountFor(c.spent, this.env) : 0;
+    const discount = card ? discountFor(card.spent, this.env) : 0;
     const token = crypto.randomUUID();
     const row = this.sql.exec(
-      `INSERT INTO takeaway (created, token, name, phone, email, pickup, lang, note, lines, total, discount, loyalty)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-      now, token, o.name, o.phone, o.email, o.pickup, o.lang, o.note, JSON.stringify(o.lines), o.total, discount, member ? 1 : 0
+      `INSERT INTO takeaway (created, token, name, phone, pickup, lang, note, lines, total, discount, card)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      now, token, o.name, o.phone, o.pickup, o.lang, o.note, JSON.stringify(o.lines), o.total, discount, card ? card.code : null
     ).one();
-    return { id: row.id, token, discount };
+    return { id: row.id, token, discount, card: card ? card.code : null };
   }
 
   takeawayStatus(id, token) {
@@ -161,21 +174,20 @@ export class Orders extends DurableObject {
     return t || { error: 'not_found', status: 404 };
   }
 
+  // Open orders for the waiter tablet (older than a day are left out)
   list() {
-    this.cleanup(Date.now());
-    const orders = this.sql.exec('SELECT * FROM orders WHERE done = 0 ORDER BY created').toArray()
+    const now = Date.now();
+    this.cleanup(now);
+    const orders = this.sql.exec('SELECT * FROM orders WHERE done = 0 AND created >= ? ORDER BY created', now - DAY).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines) }));
-    const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, lang, note, lines, total, discount, loyalty, status, ready_at
-      FROM takeaway WHERE status IN ('new', 'accepted') ORDER BY created`).toArray()
-      .map(o => {
-        const total = euros(o.total);
-        return { ...o, lines: JSON.parse(o.lines), to_pay: o.discount ? fmtEur(total * (100 - o.discount) / 100) : o.total };
-      });
+    const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, lang, note, lines, total, discount, card, status, ready_at
+      FROM takeaway WHERE status IN ('new', 'accepted') AND created >= ? ORDER BY created`, now - DAY).toArray()
+      .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
     return { orders, takeaway };
   }
 
   done(id) {
-    this.sql.exec('UPDATE orders SET done = 1 WHERE id = ?', id);
+    this.sql.exec('UPDATE orders SET done = 1, done_at = ? WHERE id = ?', Date.now(), id);
     return { ok: true };
   }
 
@@ -187,25 +199,34 @@ export class Orders extends DurableObject {
       this.sql.exec("UPDATE takeaway SET status = 'accepted', ready_at = ? WHERE id = ?", now + minutes * 60 * 1000, id);
     } else if (action === 'reject') {
       this.sql.exec("UPDATE takeaway SET status = 'rejected', closed = ? WHERE id = ?", now, id);
-    } else if (action === 'done') {
-      if (t.status !== 'done') {
-        this.sql.exec("UPDATE takeaway SET status = 'done', closed = ? WHERE id = ?", now, id);
-        const paid = euros(t.total) * (100 - t.discount) / 100;
-        this.sql.exec('UPDATE customers SET spent = spent + ?, orders = orders + 1, last_order = ? WHERE phone = ? AND loyalty = 1',
-          Math.round(paid * 100) / 100, now, t.phone);
+    } else if (action === 'done' && t.status !== 'done') {
+      this.sql.exec("UPDATE takeaway SET status = 'done', closed = ? WHERE id = ?", now, id);
+      if (t.card) {
+        const paid = Math.round(euros(t.total) * (100 - t.discount)) / 100;
+        this.sql.exec('UPDATE cards SET spent = spent + ?, orders = orders + 1, last_used = ? WHERE code = ?', paid, now, t.card);
       }
     }
     return { ok: true };
   }
 
-  customers() {
-    return this.sql.exec('SELECT * FROM customers ORDER BY spent DESC').toArray()
-      .map(c => ({ ...c, discount: c.loyalty ? discountFor(c.spent, this.env) : 0 }));
+  // Everything in a period, for the admin pages
+  history(from, to) {
+    this.cleanup(Date.now());
+    const table = this.sql.exec('SELECT * FROM orders WHERE created >= ? AND created < ? ORDER BY created DESC', from, to).toArray()
+      .map(o => ({ ...o, lines: JSON.parse(o.lines) }));
+    const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, lang, note, lines, total, discount, card, status, ready_at, closed
+      FROM takeaway WHERE created >= ? AND created < ? ORDER BY created DESC`, from, to).toArray()
+      .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
+    return { table, takeaway };
   }
 
-  deleteCustomer(phone) {
-    this.sql.exec('DELETE FROM customers WHERE phone = ?', phone);
-    this.sql.exec("UPDATE takeaway SET name = '(obrisano)', phone = '', email = '' WHERE phone = ?", phone);
+  cards() {
+    return this.sql.exec('SELECT * FROM cards ORDER BY spent DESC').toArray()
+      .map(c => ({ ...c, discount: discountFor(c.spent, this.env) }));
+  }
+
+  deleteCard(code) {
+    this.sql.exec('DELETE FROM cards WHERE code = ?', code);
     return { ok: true };
   }
 }
@@ -249,25 +270,29 @@ function validTakeaway(body) {
   const lines = validLines(body?.lines);
   const name = str(body?.name, 60);
   const phone = normPhone(body?.phone);
-  const email = str(body?.email, 120);
   const pickup = str(body?.pickup, 5);
   if (!lines || !name || !phone) return null;
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   if (pickup !== 'asap') {
     const m = pickup.match(/^(\d{2}):(\d{2})$/);
     if (!m) return null;
     const min = +m[1] * 60 + +m[2];
     if (min < TAKEAWAY_FROM || min > TAKEAWAY_UNTIL) return null;
   }
-  return { lines, name, phone, email, pickup, note: str(body.note, 300), lang: str(body.lang, 4),
-    total: str(body.total, 20), loyalty: body.loyalty === true, marketing: body.marketing === true };
+  return { lines, name, phone, pickup, note: str(body.note, 300), lang: str(body.lang, 4),
+    total: str(body.total, 20), loyalty: body.loyalty === true, card: normCard(body.card) };
 }
 
 // null = PIN matches; otherwise the error to return
-function pinError(request, env, name = 'WAITER_PIN', header = 'X-Waiter-Pin') {
-  const expected = String(env[name] || '').trim();
+function pinError(request, env) {
+  const expected = String(env.WAITER_PIN || '').trim();
   if (!expected) return 'no_pin';
-  return (request.headers.get(header) || '').trim() === expected ? null : 'pin';
+  return (request.headers.get('X-Waiter-Pin') || '').trim() === expected ? null : 'pin';
+}
+// Two admin logins (you and the owner), same rights
+function adminError(request, env) {
+  const pins = [env.ADMIN_PIN, env.OWNER_PIN].map(p => String(p || '').trim()).filter(Boolean);
+  if (!pins.length) return 'no_pin';
+  return pins.includes((request.headers.get('X-Admin-Pin') || '').trim()) ? null : 'pin';
 }
 
 const html = page => new Response(page, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -309,9 +334,8 @@ export default {
     }
 
     if (path === '/api/loyalty' && request.method === 'GET') {
-      const phone = normPhone(url.searchParams.get('phone'));
-      if (!phone) return json({ member: false, discount: 0 }, 200, c);
-      return json(await store.loyalty(phone), 200, { ...c, 'Cache-Control': 'no-store' });
+      const code = normCard(url.searchParams.get('card'));
+      return json(code ? await store.loyalty(code) : { valid: false }, 200, { ...c, 'Cache-Control': 'no-store' });
     }
 
     // ---- waiter tablet ----
@@ -340,18 +364,22 @@ export default {
       return json(res, res.status || 200);
     }
 
-    // ---- owner ----
-    if (path === '/api/admin/customers' && request.method === 'GET') {
-      const err = pinError(request, env, 'ADMIN_PIN', 'X-Admin-Pin');
+    // ---- admins ----
+    if (path.startsWith('/api/admin/')) {
+      const err = adminError(request, env);
       if (err) return json({ error: err }, 401);
-      return json({ customers: await store.customers(), tiers: tiers(env) });
-    }
 
-    m = path.match(/^\/api\/admin\/customers\/([^/]+)$/);
-    if (m && request.method === 'DELETE') {
-      const err = pinError(request, env, 'ADMIN_PIN', 'X-Admin-Pin');
-      if (err) return json({ error: err }, 401);
-      return json(await store.deleteCustomer(decodeURIComponent(m[1])));
+      if (path === '/api/admin/orders' && request.method === 'GET') {
+        const to = parseInt(url.searchParams.get('to'), 10) || Date.now() + DAY;
+        const from = parseInt(url.searchParams.get('from'), 10) || to - 7 * DAY;
+        return json({ ...(await store.history(from, to)), now: Date.now() });
+      }
+      if (path === '/api/admin/cards' && request.method === 'GET') {
+        return json({ cards: await store.cards(), tiers: tiers(env) });
+      }
+      m = path.match(/^\/api\/admin\/cards\/([A-Z0-9-]+)$/);
+      if (m && request.method === 'DELETE') return json(await store.deleteCard(m[1]));
+      return json({ error: 'not_found' }, 404);
     }
 
     if (path === '/' || path === '/konobar') return html(WAITER_PAGE);

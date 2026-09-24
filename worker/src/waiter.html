@@ -144,7 +144,7 @@ function takeawayCard(o, isNew, now){
     '<div class="pick">Preuzimanje: <b>' + (o.pickup === 'asap' ? 'što prije' : esc(o.pickup)) + '</b></div>' +
     lines(o) + (o.note ? '<div class="note">Napomena: ' + esc(o.note) + '</div>' : '') +
     '<div class="total">Ukupno <b>' + esc(o.total) + '</b></div>' +
-    (o.discount ? '<div class="loy">⭐ Loyalty −' + o.discount + ' % → za platiti <b>' + esc(o.to_pay) + '</b></div>' : '');
+    (o.card ? '<div class="loy">⭐ Kartica ' + esc(o.card) + (o.discount ? ' · −' + o.discount + ' % → za platiti <b>' + esc(o.to_pay) + '</b>' : ' · još bez popusta') + '</div>' : '');
   if (o.status === 'new') {
     html += '<div class="btns">' +
       [15, 30, 45].map(function(mn){ return '<button class="b-ok" onclick="tk(' + o.id + ',\'accept\',this,' + mn + ')">✓ ' + mn + ' min</button>'; }).join('') +
