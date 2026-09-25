@@ -104,6 +104,8 @@ export class Orders extends DurableObject {
       name TEXT, phone TEXT, pickup TEXT, lang TEXT, note TEXT, lines TEXT NOT NULL,
       total TEXT, discount INTEGER NOT NULL DEFAULT 0, card TEXT,
       status TEXT NOT NULL DEFAULT 'new', ready_at INTEGER, closed INTEGER)`);
+    const tkCols = this.sql.exec('PRAGMA table_info(takeaway)').toArray().map(c => c.name);
+    if (!tkCols.includes('pay')) this.sql.exec('ALTER TABLE takeaway ADD COLUMN pay TEXT');
     // Settings changed from the admin page; takeaway starts paused until switched on
     this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
     this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', '')");
@@ -214,9 +216,9 @@ export class Orders extends DurableObject {
     const discount = card ? discountFor(card.spent, this.env) : 0;
     const token = crypto.randomUUID();
     const row = this.sql.exec(
-      `INSERT INTO takeaway (created, token, name, phone, pickup, lang, note, lines, total, discount, card)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-      now, token, o.name, o.phone, o.pickup, o.lang, o.note, JSON.stringify(o.lines), o.total, discount, card ? card.code : null
+      `INSERT INTO takeaway (created, token, name, phone, pickup, pay, lang, note, lines, total, discount, card)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      now, token, o.name, o.phone, o.pickup, o.pay, o.lang, o.note, JSON.stringify(o.lines), o.total, discount, card ? card.code : null
     ).one();
     return { id: row.id, token, discount, card: card ? card.code : null };
   }
@@ -232,7 +234,7 @@ export class Orders extends DurableObject {
     this.cleanup(now);
     const orders = this.sql.exec('SELECT * FROM orders WHERE done = 0 AND created >= ? ORDER BY created', now - DAY).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines) }));
-    const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, lang, note, lines, total, discount, card, status, ready_at
+    const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, pay, lang, note, lines, total, discount, card, status, ready_at
       FROM takeaway WHERE status IN ('new', 'accepted') AND created >= ? ORDER BY created`, now - DAY).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
     return { orders, takeaway };
@@ -266,7 +268,7 @@ export class Orders extends DurableObject {
     this.cleanup(Date.now());
     const table = this.sql.exec('SELECT * FROM orders WHERE created >= ? AND created < ? ORDER BY created DESC', from, to).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines) }));
-    const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, lang, note, lines, total, discount, card, status, ready_at, closed
+    const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, pay, lang, note, lines, total, discount, card, status, ready_at, closed
       FROM takeaway WHERE created >= ? AND created < ? ORDER BY created DESC`, from, to).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
     return { table, takeaway };
@@ -330,7 +332,9 @@ function validTakeaway(body) {
     const min = +m[1] * 60 + +m[2];
     if (min < TAKEAWAY_FROM || min > TAKEAWAY_UNTIL) return null;
   }
-  return { lines, name, phone, pickup, note: str(body.note, 300), lang: str(body.lang, 4),
+  // Paid at the till on pickup; the guest only says whether it will be cash or card
+  const pay = body.pay === 'card' || body.pay === 'cash' ? body.pay : null;
+  return { lines, name, phone, pickup, pay, note: str(body.note, 300), lang: str(body.lang, 4),
     total: str(body.total, 20), loyalty: body.loyalty === true, card: normCard(body.card) };
 }
 

@@ -209,7 +209,8 @@ function rows(){
   if (type !== 'table') ORD.takeaway.forEach(function(o){
     out.push({kind: 'tk', created: o.created, label: 'Za van #' + o.id, lines: o.lines, total: num(o.total), paid: num(o.to_pay),
       status: ST_TK[o.status] || [o.status, ''], counts: o.status !== 'rejected', note: o.note, lang: o.lang, id: o.id,
-      who: [o.name, o.phone].filter(Boolean).join(' · '), card: o.card, discount: o.discount, pickup: o.pickup});
+      who: [o.name, o.phone].filter(Boolean).join(' · '), card: o.card, discount: o.discount, pickup: o.pickup,
+      pay: o.pay === 'card' ? 'kartica' : o.pay === 'cash' ? 'gotovina' : ''});
   });
   return out.sort(function(a, b){ return b.created - a.created; });
 }
@@ -226,7 +227,7 @@ function draw(){
     '<div class="stat"><b>' + eur(ok.length ? sum(ok) / ok.length : 0) + '</b><span>prosječna narudžba</span></div>';
   document.getElementById('rows').innerHTML = r.length ? r.map(function(x){
     var items = x.lines.map(function(l){ return l.qty + '× ' + esc(l.name); }).join(', ');
-    var extra = [x.who ? esc(x.who) : '', x.pickup ? 'preuzimanje: ' + (x.pickup === 'asap' ? 'što prije' : esc(x.pickup)) : '',
+    var extra = [x.who ? esc(x.who) : '', x.pickup ? 'preuzimanje: ' + (x.pickup === 'asap' ? 'što prije' : esc(x.pickup)) : '', x.pay ? 'plaćanje: ' + x.pay : '',
       x.card ? '⭐ ' + esc(x.card) + (x.discount ? ' −' + x.discount + ' %' : '') : '', x.note ? 'napomena: ' + esc(x.note) : ''].filter(Boolean).join(' · ');
     return '<tr><td>' + dt(x.created) + '</td><td><span class="tag ' + (x.kind === 'tk' ? 't-tk' : 't-table') + '">' + esc(x.label) + '</span></td>' +
       '<td class="items">' + items + (extra ? '<div class="muted">' + extra + '</div>' : '') + '</td>' +
@@ -251,10 +252,10 @@ function download(name, head, data){
 }
 function csvOrders(){
   download('deveron-narudzbe-' + isoDay(FROM) + '_' + isoDay(TO - 1) + '.csv',
-    ['Vrijeme', 'Vrsta', 'Stavke', 'Iznos (EUR)', 'Za platiti (EUR)', 'Stanje', 'Loyalty kartica', 'Popust (%)', 'Napomena'],
+    ['Vrijeme', 'Vrsta', 'Stavke', 'Iznos (EUR)', 'Za platiti (EUR)', 'Stanje', 'Plaćanje', 'Loyalty kartica', 'Popust (%)', 'Napomena'],
     rows().map(function(x){
       return [dt(x.created), x.label, x.lines.map(function(l){ return l.qty + 'x ' + l.name; }).join(', '),
-        x.total.toFixed(2).replace('.', ','), x.paid.toFixed(2).replace('.', ','), x.status[0], x.card || '', x.discount || '', x.note || ''];
+        x.total.toFixed(2).replace('.', ','), x.paid.toFixed(2).replace('.', ','), x.status[0], x.pay || '', x.card || '', x.discount || '', x.note || ''];
     }));
 }
 

@@ -142,6 +142,7 @@ function takeawayCard(o, isNew, now){
     '<div class="tk-head"><div class="tbl">🥡 ZA VAN</div><div class="meta">#' + o.id + ' · ' + hm(o.created) + ' · ' + ago(now - o.created) + '</div></div>' +
     '<div class="who">' + esc(o.name) + ' · <a href="tel:' + tel + '">' + tel + '</a> ' + (FLAGS[o.lang] || '') + '</div>' +
     '<div class="pick">Preuzimanje: <b>' + (o.pickup === 'asap' ? 'što prije' : esc(o.pickup)) + '</b></div>' +
+      (o.pay ? '<div class="pick">Plaćanje: <b>' + (o.pay === 'card' ? '💳 KARTICA' : '💶 GOTOVINA') + '</b></div>' : '') +
     lines(o) + (o.note ? '<div class="note">Napomena: ' + esc(o.note) + '</div>' : '') +
     '<div class="total">Ukupno <b>' + esc(o.total) + '</b></div>' +
     (o.card ? '<div class="loy">⭐ Kartica ' + esc(o.card) + (o.discount ? ' · −' + o.discount + ' % → za platiti <b>' + esc(o.to_pay) + '</b>' : ' · još bez popusta') + '</div>' : '');
