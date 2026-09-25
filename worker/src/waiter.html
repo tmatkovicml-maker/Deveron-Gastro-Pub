@@ -49,10 +49,38 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .overlay button{font-size:1.2rem;padding:.8rem 2rem;border-radius:10px;border:none;background:var(--gold);color:var(--navy);font-weight:bold;cursor:pointer;}
 .overlay p{color:#cfd6e0;max-width:28rem;}
 #pin-err{color:#ff8a80;min-height:1.2em;}
+.hdr-r{display:flex;gap:.8rem;align-items:center;}
+#so-btn{background:#fff;color:#b71c1c;border:none;border-radius:8px;padding:.45rem .8rem;font-weight:bold;font-size:.95rem;cursor:pointer;}
+.card.call{border-top-color:#d32f2f;background:#fff5f5;}
+.card.call.bill{border-top-color:#6a1b9a;background:#faf5ff;}
+.call-what{font-size:1.5rem;font-weight:bold;margin:.2rem 0 .3rem;}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;justify-content:flex-end;}
+.sheet[hidden]{display:none;}
+.sheet-box{background:#fff;width:min(560px,100%);height:100%;display:flex;flex-direction:column;}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--navy);color:var(--gold);}
+.sheet-head h2{font-size:1.1rem;letter-spacing:.08em;}
+.sheet-head button{background:none;border:none;color:#fff;font-size:1.6rem;cursor:pointer;}
+.sheet-body{overflow:auto;padding:0 1rem 2rem;flex:1;}
+#so-q{width:100%;font-size:1.1rem;padding:.7rem;border:1px solid #ccc;border-radius:8px;margin:1rem 0 .5rem;}
+.so-h{font-weight:bold;color:#555;margin:1rem 0 .3rem;text-transform:uppercase;font-size:.85rem;letter-spacing:.06em;}
+.so-row{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.55rem 0;border-bottom:1px solid #eee;font-size:1.05rem;}
+.so-row button{flex-shrink:0;border:none;border-radius:8px;padding:.55rem .8rem;font-weight:bold;cursor:pointer;background:#eee;color:#333;}
+.so-row.off span{color:#b71c1c;text-decoration:line-through;}
+.so-row.off button{background:#1b7f3b;color:#fff;}
 </style>
 </head>
 <body>
-<header><h1>DEVERON · NARUDŽBE</h1><div id="status">…</div></header>
+<header><h1>DEVERON · NARUDŽBE</h1><div class="hdr-r"><button id="so-btn" onclick="openSoldout()">🚫 Rasprodano</button><div id="status">…</div></div></header>
+<div class="sheet" id="so-sheet" hidden onclick="if(event.target===this)closeSoldout()">
+  <div class="sheet-box">
+    <div class="sheet-head"><h2>🚫 RASPRODANO DANAS</h2><button onclick="closeSoldout()" aria-label="Zatvori">✕</button></div>
+    <div class="sheet-body">
+      <input id="so-q" placeholder="Traži jelo ili piće…" oninput="drawSoldout()"/>
+      <div id="so-list">Učitavanje…</div>
+      <p style="color:#777;margin-top:1rem;font-size:.9rem">Rasprodano se gostima odmah prikazuje kao „Trenutno nije dostupno” i ne može se naručiti. Sutra se samo vraća.</p>
+    </div>
+  </div>
+</div>
 <div id="grid"></div>
 
 <div class="overlay" id="login">
@@ -119,6 +147,17 @@ function beep(takeaway){
   });
 }
 
+// Guest calls: two short high "ding-ding" pairs
+function ring(){
+  if (!audio) return;
+  [0, 0.15, 0.6, 0.75].forEach(function(t){
+    var o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = 1568; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.35, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.12);
+    o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.13);
+  });
+}
+
 function ago(ms){
   var m = Math.floor(ms / 60000);
   return m < 1 ? 'upravo' : 'prije ' + m + ' min';
@@ -158,23 +197,80 @@ function takeawayCard(o, isNew, now){
   return html + '</div>';
 }
 
+function callCard(o, isNew, now){
+  var bill = o.kind === 'bill';
+  var what = bill ? '🧾 RAČUN' + (o.pay === 'card' ? ' · 💳 KARTICA' : o.pay === 'cash' ? ' · 💶 GOTOVINA' : '') : '🙋 POZIV KONOBARA';
+  return '<div class="card call' + (bill ? ' bill' : '') + (isNew ? ' new' : '') + '">' +
+    '<div class="tbl">STOL ' + o.tbl + '</div>' +
+    '<div class="call-what">' + what + '</div>' +
+    '<div class="meta">' + new Date(o.created).toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}) + ' · ' + ago(now - o.created) + '</div>' +
+    '<button class="done" onclick="callDone(' + o.id + ', this)">✓ Riješeno</button></div>';
+}
+
+function callDone(id, btn){
+  btn.disabled = true; btn.textContent = '…';
+  api('/api/calls/' + id + '/done', {method: 'POST'}).then(poll).catch(function(){ btn.disabled = false; btn.textContent = '✓ Riješeno'; });
+}
+
+// ---- sold out today ----
+var MENU = [], SOLD = [];
+function openSoldout(){
+  document.getElementById('so-sheet').hidden = false;
+  api('/api/menu-names').then(function(d){ MENU = d.items; SOLD = d.soldout; drawSoldout(); })
+    .catch(function(){ document.getElementById('so-list').textContent = 'Meni se ne može učitati — provjerite internet.'; });
+}
+function closeSoldout(){ document.getElementById('so-sheet').hidden = true; }
+function drawSoldout(){
+  var q = document.getElementById('so-q').value.trim().toLowerCase();
+  var row = function(it){
+    var off = SOLD.indexOf(it.name) >= 0;
+    return '<div class="so-row' + (off ? ' off' : '') + '"><span>' + esc(it.name) + '</span>' +
+      '<button data-name="' + esc(it.name) + '" onclick="toggleSold(this)">' + (off ? '↺ Opet ima' : '🚫 Rasprodano') + '</button></div>';
+  };
+  var html = '';
+  var sold = MENU.filter(function(it){ return SOLD.indexOf(it.name) >= 0; });
+  if (sold.length) html += '<div class="so-h">Danas rasprodano (' + sold.length + ')</div>' + sold.map(row).join('');
+  var groups = {};
+  MENU.forEach(function(it){
+    if (q && it.name.toLowerCase().indexOf(q) < 0) return;
+    var g = it.tab + (it.cat ? ' · ' + it.cat : '');
+    (groups[g] = groups[g] || []).push(it);
+  });
+  Object.keys(groups).forEach(function(g){ html += '<div class="so-h">' + esc(g) + '</div>' + groups[g].map(row).join(''); });
+  document.getElementById('so-list').innerHTML = html || 'Nema rezultata';
+}
+function toggleSold(btn){
+  var name = btn.getAttribute('data-name'), on = SOLD.indexOf(name) < 0;
+  btn.disabled = true;
+  api('/api/soldout', {method: 'POST', body: JSON.stringify({name: name, on: on})})
+    .then(function(d){ SOLD = d.soldout; drawSoldout(); drawSoldBtn(); })
+    .catch(function(){ btn.disabled = false; });
+}
+function drawSoldBtn(){
+  document.getElementById('so-btn').textContent = '🚫 Rasprodano' + (SOLD.length ? ' (' + SOLD.length + ')' : '');
+}
+
 function lines(o){
   return o.lines.map(function(l){ return '<div class="line"><b>' + l.qty + '×</b><span>' + esc(l.name) + '</span><i>' + esc(l.price) + '</i></div>'; }).join('');
 }
 
 function render(data){
   var grid = document.getElementById('grid'), freshTable = false, freshTk = false;
-  var tk = data.takeaway || [];
-  if (!data.orders.length && !tk.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
-  var cards = tk.map(function(o){
+  var tk = data.takeaway || [], calls = data.calls || [], freshCall = false;
+  SOLD = data.soldout || SOLD; drawSoldBtn();
+  if (!data.orders.length && !tk.length && !calls.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
+  var cards = calls.map(function(o){
+    var key = 'c' + o.id + (o.pay || ''), isNew = !seen[key] && !first; if (isNew) freshCall = true; seen[key] = true;
+    return callCard(o, isNew, data.now);
+  }).concat(tk.map(function(o){
     var key = 'k' + o.id, isNew = !seen[key] && !first; if (isNew) freshTk = true; seen[key] = true;
     return takeawayCard(o, isNew, data.now);
-  }).concat(data.orders.map(function(o){
+  })).concat(data.orders.map(function(o){
     var key = 't' + o.id, isNew = !seen[key] && !first; if (isNew) freshTable = true; seen[key] = true;
     return tableCard(o, isNew, data.now);
   }));
   grid.innerHTML = cards.join('');
-  if (freshTk) beep(true); else if (freshTable) beep(false);
+  if (freshCall) ring(); else if (freshTk) beep(true); else if (freshTable) beep(false);
   first = false;
 }
 
