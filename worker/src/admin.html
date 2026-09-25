@@ -52,12 +52,22 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
 .overlay button{font-size:1.2rem;padding:.8rem 2rem;background:var(--gold);color:var(--navy);font-weight:bold;border:none;border-radius:10px;cursor:pointer;}
 #err{color:#ff8a80;min-height:1.2em;}
 [hidden]{display:none!important;}
+.floor{position:relative;width:100%;aspect-ratio:1.83;background:#1f3a8a;border-radius:12px;overflow:hidden;touch-action:none;user-select:none;}
+.et{position:absolute;transform:translate(-50%,-50%);width:9.2%;height:9.5%;min-width:48px;background:#e9edf2;border-radius:8px;border:2px solid #fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;font-size:clamp(.65rem,1.3vw,1rem);cursor:grab;box-shadow:0 2px 0 #4caf50,0 -2px 0 #4caf50;}
+.et small{font-weight:normal;font-size:.7em;color:#555;}
+.et.sel{border-color:var(--gold);background:#fff4c2;}
+.et.drag{cursor:grabbing;opacity:.85;z-index:2;}
+.edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;align-items:end;}
+.edit label{display:flex;flex-direction:column;font-size:.85rem;color:#555;gap:.2rem;}
+.edit input,.edit select{padding:.5rem;border:1px solid #ccc;border-radius:8px;font-size:1rem;}
+.save{background:var(--green)!important;color:#fff!important;border:none!important;font-weight:bold;}
+.dirty{color:#b26a00;font-weight:bold;}
 </style>
 </head>
 <body>
 <header>
   <h1>DEVERON · ADMINISTRACIJA</h1>
-  <nav><button id="nav-o" class="on" onclick="tab('o')">Narudžbe</button><button id="nav-c" onclick="tab('c')">Loyalty kartice</button><button onclick="logout()">Odjava</button></nav>
+  <nav><button id="nav-o" class="on" onclick="tab('o')">Narudžbe</button><button id="nav-c" onclick="tab('c')">Loyalty kartice</button><button id="nav-t" onclick="tab('t')">Tlocrt</button><button onclick="logout()">Odjava</button></nav>
 </header>
 
 <main>
@@ -90,6 +100,21 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
       <div class="box"><b>Najprodavanije</b><table style="margin-top:.5rem"><tbody id="top"></tbody></table></div>
     </div>
     <p class="hint">Iznosi su prema narudžbama poslanim s mobitela, ne prema blagajni. Ime i mobitel gosta za van brišu se nakon 7 dana; narudžbe ostaju godinu dana, bez osobnih podataka. Osvježava se svakih 30 s.</p>
+  </section>
+
+  <section id="tab-t" hidden>
+    <div class="box tools">
+      <button data-a="terasa" class="on" onclick="setArea('terasa')">Terasa</button>
+      <button data-a="restoran" onclick="setArea('restoran')">Restoran</button>
+      <span class="sep"></span>
+      <button onclick="addTable()">＋ Dodaj stol</button>
+      <span id="t-dirty" class="dirty"></span>
+      <button class="right" onclick="loadTables()">Poništi</button>
+      <button class="save" onclick="saveTables()">✓ Spremi tlocrt</button>
+    </div>
+    <div class="box"><div class="floor" id="floor"></div></div>
+    <div class="box" id="t-edit"><span class="muted">Povucite stol prstom ili mišem na novo mjesto. Dodirnite stol da mu promijenite naziv ili broj mjesta.</span></div>
+    <p class="hint">Broj u QR kodu (ID) se ne mijenja kad stol preimenujete ili pomaknete, pa QR kartice ne treba ponovno tiskati. QR kartice s trenutnim nazivima: <a href="https://deveronpub.com/qr.html" target="_blank" rel="noopener">deveronpub.com/qr.html</a>.</p>
   </section>
 
   <section id="tab-c" hidden>
@@ -145,10 +170,91 @@ function login(){
 function logout(){ sessionStorage.removeItem('deveron-admin'); location.reload(); }
 
 function tab(t){
-  document.getElementById('tab-o').hidden = t !== 'o'; document.getElementById('tab-c').hidden = t !== 'c';
-  document.getElementById('nav-o').className = t === 'o' ? 'on' : ''; document.getElementById('nav-c').className = t === 'c' ? 'on' : '';
+  ['o', 'c', 't'].forEach(function(x){
+    document.getElementById('tab-' + x).hidden = t !== x; document.getElementById('nav-' + x).className = t === x ? 'on' : '';
+  });
   if (t === 'c') loadCards();
+  if (t === 't') loadTables();
 }
+
+// ---- floor plan editor ----
+var TBL = [], AREA = 'terasa', SEL = null, DIRTY = false, NAMES = {};
+function loadTables(){
+  api('/api/admin/tables').then(function(d){ TBL = d.tables; SEL = null; setDirty(false); drawTables(); drawEdit(); });
+}
+function setDirty(v){ DIRTY = v; document.getElementById('t-dirty').textContent = v ? '● Nespremljene promjene' : ''; }
+function setArea(a){
+  AREA = a; SEL = null;
+  document.querySelectorAll('[data-a]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-a') === a); });
+  drawTables(); drawEdit();
+}
+function drawTables(){
+  document.getElementById('floor').innerHTML = TBL.filter(function(t){ return t.area === AREA; }).map(function(t){
+    return '<div class="et' + (SEL === t.id ? ' sel' : '') + '" data-id="' + t.id + '" style="left:' + t.x + '%;top:' + t.y + '%">' +
+      esc(t.name) + '<small>' + t.seats + ' os.</small></div>';
+  }).join('') || '<p style="color:#fff;padding:1rem">Nema stolova. Dodajte ih gumbom „＋ Dodaj stol”.</p>';
+}
+function byId(id){ return TBL.filter(function(t){ return t.id === id; })[0]; }
+function drawEdit(){
+  var t = byId(SEL), box = document.getElementById('t-edit');
+  if (!t){ box.innerHTML = '<span class="muted">Povucite stol prstom ili mišem na novo mjesto. Dodirnite stol da mu promijenite naziv ili broj mjesta.</span>'; return; }
+  box.innerHTML = '<div class="edit">' +
+    '<label>Naziv<input id="e-name" maxlength="20" value="' + esc(t.name) + '" oninput="editT(\'name\', this.value)"/></label>' +
+    '<label>Broj mjesta<input id="e-seats" type="number" min="1" max="30" value="' + t.seats + '" oninput="editT(\'seats\', this.value)"/></label>' +
+    '<label>Prostor<select onchange="editT(\'area\', this.value)"><option value="terasa"' + (t.area === 'terasa' ? ' selected' : '') + '>Terasa</option><option value="restoran"' + (t.area === 'restoran' ? ' selected' : '') + '>Restoran</option></select></label>' +
+    '<label>Broj u QR kodu<input value="' + t.id + '" disabled/></label>' +
+    '<button class="del" onclick="delTable()">🗑 Obriši stol</button></div>';
+}
+function editT(k, v){
+  var t = byId(SEL); if (!t) return;
+  if (k === 'seats') v = Math.max(1, Math.min(30, parseInt(v, 10) || 1));
+  t[k] = v; setDirty(true); drawTables();
+  if (k === 'area') { SEL = null; drawEdit(); }
+}
+function addTable(){
+  var id = TBL.reduce(function(m, t){ return Math.max(m, t.id); }, 0) + 1;
+  TBL.push({id: id, name: 'S-' + id, area: AREA, x: 50, y: 50, seats: 4});
+  SEL = id; setDirty(true); drawTables(); drawEdit();
+}
+function delTable(){
+  var t = byId(SEL);
+  if (!t || !confirm('Obrisati stol ' + t.name + '? Njegova QR kartica više neće raditi.')) return;
+  TBL = TBL.filter(function(x){ return x.id !== t.id; }); SEL = null; setDirty(true); drawTables(); drawEdit();
+}
+function saveTables(){
+  var names = TBL.map(function(t){ return t.name.trim().toLowerCase(); });
+  if (TBL.some(function(t){ return !t.name.trim(); })) { alert('Svaki stol mora imati naziv.'); return; }
+  if (names.some(function(n, i){ return names.indexOf(n) !== i; })) { alert('Dva stola imaju isti naziv.'); return; }
+  fetch('/api/admin/tables', {method: 'POST', headers: {'X-Admin-Pin': PIN, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tables: TBL.map(function(t){ return {id: t.id, name: t.name.trim(), area: t.area, x: t.x, y: t.y, seats: t.seats}; })})})
+    .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+    .then(function(d){ TBL = d.tables; setDirty(false); drawTables(); alert('Tlocrt je spremljen.'); })
+    .catch(function(){ alert('Spremanje nije uspjelo. Provjerite internet i pokušajte ponovno.'); });
+}
+(function(){
+  var floor = null, drag = null;
+  document.addEventListener('pointerdown', function(e){
+    var el = e.target.closest && e.target.closest('.et'); if (!el) return;
+    floor = document.getElementById('floor');
+    drag = {id: +el.getAttribute('data-id'), el: el, x0: e.clientX, y0: e.clientY, moved: false};
+    el.setPointerCapture(e.pointerId);
+  });
+  document.addEventListener('pointermove', function(e){
+    if (!drag) return;
+    if (!drag.moved && Math.abs(e.clientX - drag.x0) + Math.abs(e.clientY - drag.y0) < 6) return;
+    drag.moved = true; drag.el.classList.add('drag');
+    var r = floor.getBoundingClientRect(), t = byId(drag.id);
+    t.x = Math.round(Math.max(3, Math.min(97, (e.clientX - r.left) / r.width * 100)) * 10) / 10;
+    t.y = Math.round(Math.max(4, Math.min(96, (e.clientY - r.top) / r.height * 100)) * 10) / 10;
+    drag.el.style.left = t.x + '%'; drag.el.style.top = t.y + '%';
+  });
+  document.addEventListener('pointerup', function(){
+    if (!drag) return;
+    if (drag.moved) setDirty(true); else SEL = drag.id;
+    drag = null; drawTables(); drawEdit();
+  });
+})();
+window.addEventListener('beforeunload', function(e){ if (DIRTY) { e.preventDefault(); e.returnValue = ''; } });
 
 function period(p, btn){
   var now = Date.now(), today = midnight(now), DAY = 86400000;
@@ -203,7 +309,7 @@ function loadOrders(){
 function rows(){
   var type = document.getElementById('type').value, out = [];
   if (type !== 'tk') ORD.table.forEach(function(o){
-    out.push({kind: 'table', created: o.created, label: 'Stol ' + o.tbl, lines: o.lines, total: num(o.total), paid: num(o.total),
+    out.push({kind: 'table', created: o.created, label: (ORD.names && ORD.names[o.tbl]) || 'Stol ' + o.tbl, lines: o.lines, total: num(o.total), paid: num(o.total),
       status: o.done ? ['Otkucano', 'st-ok'] : ['Otvoreno', 'st-open'], counts: true, note: o.note, lang: o.lang, id: o.id});
   });
   if (type !== 'table') ORD.takeaway.forEach(function(o){

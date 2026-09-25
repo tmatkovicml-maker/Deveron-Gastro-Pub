@@ -50,6 +50,18 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .overlay p{color:#cfd6e0;max-width:28rem;}
 #pin-err{color:#ff8a80;min-height:1.2em;}
 .hdr-r{display:flex;gap:.8rem;align-items:center;}
+#plan-btn{background:none;color:var(--gold);border:1px solid var(--gold);border-radius:8px;padding:.45rem .8rem;font-weight:bold;font-size:.95rem;cursor:pointer;}
+#plan{padding:1rem;}
+#plan[hidden],#grid[hidden]{display:none;}
+.plan-tabs{display:flex;gap:.5rem;margin-bottom:.6rem;}
+.plan-tabs button{border:1px solid #bbb;background:#fff;border-radius:8px;padding:.5rem 1rem;font-weight:bold;cursor:pointer;}
+.plan-tabs button.on{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.floor{position:relative;width:100%;aspect-ratio:1.83;background:#1f3a8a;border-radius:12px;overflow:hidden;}
+.ft{position:absolute;transform:translate(-50%,-50%);width:9.2%;height:9.5%;min-width:52px;background:#e9edf2;border-radius:8px;border:2px solid #fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;font-size:clamp(.7rem,1.4vw,1.1rem);color:#111;box-shadow:0 2px 0 #4caf50,0 -2px 0 #4caf50;}
+.ft small{font-weight:normal;font-size:.7em;color:#444;}
+.ft.order{background:#fff1c1;border-color:var(--gold);}
+.ft.call{background:#ffcdd2;border-color:#d32f2f;animation:flash 1s infinite;}
+.plan-legend{margin-top:.6rem;color:#555;font-size:.9rem;display:flex;gap:1rem;flex-wrap:wrap;}
 #so-btn{background:#fff;color:#b71c1c;border:none;border-radius:8px;padding:.45rem .8rem;font-weight:bold;font-size:.95rem;cursor:pointer;}
 .card.call{border-top-color:#d32f2f;background:#fff5f5;}
 .card.call.bill{border-top-color:#6a1b9a;background:#faf5ff;}
@@ -70,7 +82,7 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 </style>
 </head>
 <body>
-<header><h1>DEVERON · NARUDŽBE</h1><div class="hdr-r"><button id="so-btn" onclick="openSoldout()">🚫 Rasprodano</button><div id="status">…</div></div></header>
+<header><h1>DEVERON · NARUDŽBE</h1><div class="hdr-r"><button id="plan-btn" onclick="togglePlan()">🗺 Tlocrt</button><button id="so-btn" onclick="openSoldout()">🚫 Rasprodano</button><div id="status">…</div></div></header>
 <div class="sheet" id="so-sheet" hidden onclick="if(event.target===this)closeSoldout()">
   <div class="sheet-box">
     <div class="sheet-head"><h2>🚫 RASPRODANO DANAS</h2><button onclick="closeSoldout()" aria-label="Zatvori">✕</button></div>
@@ -82,6 +94,11 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
   </div>
 </div>
 <div id="grid"></div>
+<div id="plan" hidden>
+  <div class="plan-tabs" id="plan-tabs"></div>
+  <div class="floor" id="floor"></div>
+  <div class="plan-legend"><span>🟨 otvorena narudžba</span><span>🟥 poziv / račun</span><span>Stolove i nazive mijenja administrator (Tlocrt).</span></div>
+</div>
 
 <div class="overlay" id="login">
   <h2>NARUDŽBE SA STOLOVA</h2>
@@ -166,7 +183,7 @@ function ago(ms){
 function tableCard(o, isNew, now){
   var t = new Date(o.created);
   return '<div class="card' + (isNew ? ' new' : '') + '">' +
-    '<div class="tbl">STOL ' + o.tbl + '</div>' +
+    '<div class="tbl">' + esc(tname(o.tbl)) + '</div>' +
     '<div class="meta">' + t.toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}) + ' · ' + ago(now - o.created) + ' · gost: ' + (FLAGS[o.lang] || '') + ' ' + esc(o.lang) + '</div>' +
     lines(o) + (o.note ? '<div class="note">Napomena: ' + esc(o.note) + '</div>' : '') +
     '<div class="total">Ukupno <b>' + esc(o.total) + '</b></div>' +
@@ -201,7 +218,7 @@ function callCard(o, isNew, now){
   var bill = o.kind === 'bill';
   var what = bill ? '🧾 RAČUN' + (o.pay === 'card' ? ' · 💳 KARTICA' : o.pay === 'cash' ? ' · 💶 GOTOVINA' : '') : '🙋 POZIV KONOBARA';
   return '<div class="card call' + (bill ? ' bill' : '') + (isNew ? ' new' : '') + '">' +
-    '<div class="tbl">STOL ' + o.tbl + '</div>' +
+    '<div class="tbl">' + esc(tname(o.tbl)) + '</div>' +
     '<div class="call-what">' + what + '</div>' +
     '<div class="meta">' + new Date(o.created).toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}) + ' · ' + ago(now - o.created) + '</div>' +
     '<button class="done" onclick="callDone(' + o.id + ', this)">✓ Riješeno</button></div>';
@@ -250,6 +267,37 @@ function drawSoldBtn(){
   document.getElementById('so-btn').textContent = '🚫 Rasprodano' + (SOLD.length ? ' (' + SOLD.length + ')' : '');
 }
 
+// ---- tables: names and floor plan ----
+var TABLES = [], LAST = null, AREA = 'terasa';
+var AREA_NAMES = {terasa: 'Terasa', restoran: 'Restoran'};
+function tname(id){
+  var t = TABLES.filter(function(x){ return x.id === id; })[0];
+  return t ? t.name : 'Stol ' + id;
+}
+function togglePlan(){
+  var p = document.getElementById('plan'), on = p.hidden;
+  p.hidden = !on; document.getElementById('grid').hidden = on;
+  document.getElementById('plan-btn').textContent = on ? '☰ Narudžbe' : '🗺 Tlocrt';
+  drawPlan();
+}
+function setArea(a){ AREA = a; drawPlan(); }
+function drawPlan(){
+  if (document.getElementById('plan').hidden || !LAST) return;
+  var areas = ['terasa', 'restoran'].filter(function(a){ return TABLES.some(function(t){ return t.area === a; }); });
+  if (areas.indexOf(AREA) < 0) AREA = areas[0] || 'terasa';
+  document.getElementById('plan-tabs').innerHTML = areas.map(function(a){
+    return '<button class="' + (a === AREA ? 'on' : '') + '" onclick="setArea(\'' + a + '\')">' + AREA_NAMES[a] + '</button>';
+  }).join('');
+  var orders = {}, calls = {};
+  LAST.orders.forEach(function(o){ orders[o.tbl] = (orders[o.tbl] || 0) + 1; });
+  (LAST.calls || []).forEach(function(c){ calls[c.tbl] = c.kind === 'bill' ? '🧾' : '🙋'; });
+  document.getElementById('floor').innerHTML = TABLES.filter(function(t){ return t.area === AREA; }).map(function(t){
+    var cls = calls[t.id] ? ' call' : orders[t.id] ? ' order' : '';
+    return '<div class="ft' + cls + '" style="left:' + t.x + '%;top:' + t.y + '%">' + esc(t.name) +
+      '<small>' + (calls[t.id] || '') + (orders[t.id] ? ' 🧾' + orders[t.id] : '') + ' ' + t.seats + ' os.</small></div>';
+  }).join('');
+}
+
 function lines(o){
   return o.lines.map(function(l){ return '<div class="line"><b>' + l.qty + '×</b><span>' + esc(l.name) + '</span><i>' + esc(l.price) + '</i></div>'; }).join('');
 }
@@ -258,6 +306,7 @@ function render(data){
   var grid = document.getElementById('grid'), freshTable = false, freshTk = false;
   var tk = data.takeaway || [], calls = data.calls || [], freshCall = false;
   SOLD = data.soldout || SOLD; drawSoldBtn();
+  TABLES = data.tables || TABLES; LAST = data; drawPlan();
   if (!data.orders.length && !tk.length && !calls.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
   var cards = calls.map(function(o){
     var key = 'c' + o.id + (o.pay || ''), isNew = !seen[key] && !first; if (isNew) freshCall = true; seen[key] = true;

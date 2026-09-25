@@ -1167,15 +1167,17 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 // A table's QR code opens the site with ?stol=N. Guests then get a + button on every
 // item and an order list they show to the waiter, who enters it into the till.
 // Nothing is sent anywhere; the order lives in the guest's browser for 4 hours.
-const TABLE_COUNT=40;
 // Cloudflare Worker (folder worker/) that forwards orders to the waiter tablet.
 // While empty, guests can only show their order to the waiter.
 const ORDER_API='https://deveron-gastro-pub.t-matkovicml.workers.dev';
+// ?stol=12 is the fixed table id from the QR card; its name (e.g. "S-12") comes from /api/status
 const TABLE=(()=>{
   const n=parseInt(new URLSearchParams(location.search).get('stol'),10);
-  if(n>=1&&n<=TABLE_COUNT){try{sessionStorage.setItem('deveron-table',n);}catch(e){} return n;}
-  try{const s=parseInt(sessionStorage.getItem('deveron-table'),10);return s>=1&&s<=TABLE_COUNT?s:null;}catch(e){return null;}
+  if(n>=1&&n<=999){try{sessionStorage.setItem('deveron-table',n);}catch(e){} return n;}
+  try{const s=parseInt(sessionStorage.getItem('deveron-table'),10);return s>=1&&s<=999?s:null;}catch(e){return null;}
 })();
+let TABLE_NAME=(()=>{try{return sessionStorage.getItem('deveron-table-name')||'';}catch(e){return '';}})();
+const tableLabel=()=>TABLE_NAME||String(TABLE||'');
 // Takeaway: guests without a table QR code can order for pickup (08:00–21:30, not 25.12.)
 let MODE=TABLE?'table':(()=>{try{return localStorage.getItem('deveron-mode')==='takeaway'?'takeaway':null;}catch(e){return null;}})();
 // Takeaway can be paused from the admin page; hidden until the Worker confirms it is on
@@ -1231,7 +1233,7 @@ function updateOrderBar(){
   const list=orderItems(), n=list.reduce((a,x)=>a+x.qty,0);
   bar.classList.toggle('idle',!MODE);
   if(MODE==='table'){
-    bar.innerHTML=`<span>🧾 ${t('order')} · ${t('table')} <b>${TABLE}</b></span><span><b>${n}×</b> · <b>${orderTotal(list)}</b></span>`;
+    bar.innerHTML=`<span>🧾 ${t('order')} · ${t('table')} <b>${esc(tableLabel())}</b></span><span><b>${n}×</b> · <b>${orderTotal(list)}</b></span>`;
   }else if(MODE==='takeaway'){
     const st=TK_LAST&&TK_LAST.state&&TK_LAST.state!=='done'?`<span class="ob-status">${tkStatusShort()}</span>`:'';
     bar.innerHTML=`<span>🥡 ${t('takeaway')}</span>${st||`<span><b>${n}×</b> · <b>${orderTotal(list)}</b></span>`}`;
@@ -1307,7 +1309,7 @@ function renderOrder(){
 }
 function openOrder(){
   const tk=MODE==='takeaway';
-  document.getElementById('order-title').innerHTML=tk?`🥡 ${t('takeaway')}`:`🧾 ${t('order')} · ${t('table')} ${TABLE}`;
+  document.getElementById('order-title').innerHTML=tk?`🥡 ${t('takeaway')}`:`🧾 ${t('order')} · ${t('table')} ${esc(tableLabel())}`;
   document.getElementById('tk-fields').hidden=!tk;
   document.getElementById('tk-exit').hidden=!tk;
   document.getElementById('order-hint').hidden=tk;
@@ -1433,8 +1435,9 @@ loadOrder();
 if(ORDER_API){document.getElementById('send-btn').hidden=false;document.body.classList.add('can-send');}
 function refreshStatus(){
   if(!ORDER_API) return;
-  fetch(ORDER_API.replace(/\/$/,'')+'/api/status').then(r=>r.json()).then(d=>{
+  fetch(ORDER_API.replace(/\/$/,'')+'/api/status'+(TABLE?'?stol='+TABLE:'')).then(r=>r.json()).then(d=>{
     setAI(!!d.ai);
+    if(TABLE&&d.table&&d.table!==TABLE_NAME){TABLE_NAME=d.table;try{sessionStorage.setItem('deveron-table-name',d.table);}catch(e){}showTable();updateOrderBar();}
     const sold=new Set(d.soldout||[]);
     if([...sold].join('|')!==[...SOLDOUT].join('|')){SOLDOUT=sold;if(ITEMS.length&&document.getElementById('app').style.display==='block')renderAll();}
     if(TABLE) return;
@@ -1464,7 +1467,8 @@ async function callWaiter(kind,pay,btn){
   setTimeout(()=>{btn.disabled=false;},ok?30000:3000);
 }
 if(MODE==='takeaway') document.body.classList.add('takeaway');
-document.querySelectorAll('.o-table').forEach(e=>e.textContent=TABLE||'');
+const showTable=()=>document.querySelectorAll('.o-table').forEach(e=>e.textContent=tableLabel());
+showTable();
 updateOrderBar();
 if(TK_LAST) pollTk();
 

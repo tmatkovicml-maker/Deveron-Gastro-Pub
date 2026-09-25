@@ -8,6 +8,9 @@
 //   GET  /api/status                   {takeaway, ai, soldout} – switches and today's sold-out items
 //   POST /api/chat                     {messages, lang} → {reply}  AI assistant (Claude)
 //   POST /api/call                     {table, kind: waiter|bill, pay?: cash|card}  call the waiter / ask for the bill
+//   GET  /api/tables                   [{id, name, area}] – table names for the QR cards and the site
+// Tables are kept by a fixed id (the number in the QR code, ?stol=12); the name, place on the
+// floor plan and seats can be changed in the admin page without reprinting the QR cards.
 // Waiter tablet (X-Waiter-Pin = WAITER_PIN):
 //   GET  /api/orders                   open table and takeaway orders
 //   POST /api/orders/:id/done          table order entered in the till
@@ -22,6 +25,7 @@
 //   GET  /api/admin/cards              loyalty cards
 //   DELETE /api/admin/cards/:code
 //   POST /api/admin/settings           {takeaway?, ai?} – pause / resume takeaway orders and the AI assistant
+//   GET|POST /api/admin/tables         floor plan: [{id, name, area, x, y, seats}]
 // Pages: /  waiter tablet · /admin  orders and loyalty cards
 //
 // Loyalty is anonymous: a card is only a random code kept on the guest's phone plus the
@@ -35,7 +39,9 @@ import ADMIN_PAGE from './admin.html';
 import { askClaude, validChat, menuNames } from './ai.js';
 
 const SITE_ORIGINS = ['https://deveronpub.com', 'https://www.deveronpub.com'];
-const TABLES = 40;
+// Terrace as in the till (x, y = centre in per cent of the floor plan); ids stay the QR numbers
+const DEFAULT_TABLES = [[1,"S-1",6.2,67.2],[2,"S-2",16.3,67.2],[3,"S-3",26.3,67.2],[4,"S-4",36.4,67.2],[5,"S-5",5.7,53.6],[6,"S-6",15.8,53.6],[7,"S-7",26,53.6],[8,"S-8",35.9,53.6],[9,"S-9",45.4,53.6],[10,"S-10",6.6,38.8],[11,"S-11",30.8,38.8],[12,"S-12",5.7,21.3],[13,"S-13",29.2,21.3],[14,"S-14",44,21.3],[15,"S-15",55.6,67.2],[16,"S-16",67.9,67.2],[17,"S-17",80.9,67.2],[18,"S-18",92.6,67.2],[19,"S-19",55.4,53.6],[20,"S-20",67.4,53.6],[21,"S-21",80.7,53.6],[22,"S-22",92.8,53.6],[23,"S-23",55.7,38.8],[24,"S-24",67.7,38.8],[25,"S-25",80.9,38.8],[26,"S-26",92.8,38.8],[27,"S-27",55.3,21.3],[28,"S-28",67.8,21.3],[29,"S-29",80.7,21.3],[30,"S-30",93.2,21.3],[31,"S-31",9.5,92.9],[32,"S-32",20.1,92.9],[33,"S-33",79,92.9],[34,"S-34",90.6,92.9],[35,"VATRA 1",17.8,38.8],[36,"VATRA 2",16,21.3],[37,"DINO 05",46.1,92.9]];
+const AREAS = ['terasa', 'restoran'];
 const HOUR = 3600 * 1000, DAY = 24 * HOUR;
 const KEEP_ORDERS = 365 * DAY, KEEP_CONTACT = 7 * DAY, KEEP_CARDS = 730 * DAY;
 const TAKEAWAY_FROM = 8 * 60, TAKEAWAY_UNTIL = 21 * 60 + 30;   // minutes of the day, Croatian time
@@ -116,6 +122,13 @@ export class Orders extends DurableObject {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
     this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', '')");
     this.sql.exec('CREATE TABLE IF NOT EXISTS soldout (name TEXT PRIMARY KEY, day TEXT NOT NULL)');
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS tables (
+      id INTEGER PRIMARY KEY, name TEXT NOT NULL, area TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL,
+      seats INTEGER NOT NULL DEFAULT 4)`);
+    if (!this.sql.exec('SELECT COUNT(*) AS n FROM tables').one().n) {
+      for (const [id, name, x, y] of DEFAULT_TABLES)
+        this.sql.exec('INSERT INTO tables (id, name, area, x, y, seats) VALUES (?, ?, ?, ?, ?, 4)', id, name, 'terasa', x, y);
+    }
     this.sql.exec(`CREATE TABLE IF NOT EXISTS calls (
       id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, tbl INTEGER NOT NULL,
       kind TEXT NOT NULL, pay TEXT, done INTEGER NOT NULL DEFAULT 0)`);
@@ -132,6 +145,22 @@ export class Orders extends DurableObject {
     this.sql.exec("UPDATE takeaway SET name = '', phone = '' WHERE created < ? AND phone != ''", now - KEEP_CONTACT);
     this.sql.exec('DELETE FROM cards WHERE COALESCE(last_used, created) < ?', now - KEEP_CARDS);
     this.sql.exec('DELETE FROM calls WHERE created < ?', now - DAY);
+  }
+
+  // ---- tables and floor plan ----
+  tables() {
+    return this.sql.exec('SELECT * FROM tables ORDER BY id').toArray();
+  }
+
+  tableNames() {
+    return Object.fromEntries(this.tables().map(t => [t.id, t.name]));
+  }
+
+  saveTables(list) {
+    this.sql.exec('DELETE FROM tables');
+    for (const t of list)
+      this.sql.exec('INSERT INTO tables (id, name, area, x, y, seats) VALUES (?, ?, ?, ?, ?, ?)', t.id, t.name, t.area, t.x, t.y, t.seats);
+    return { tables: this.tables() };
   }
 
   // ---- sold out today (resets by itself the next day) ----
@@ -155,6 +184,7 @@ export class Orders extends DurableObject {
 
   // ---- guest calls the waiter or asks for the bill ----
   addCall(c, ip) {
+    if (!this.tableNames()[c.table]) return { error: 'no_table', status: 400 };
     const now = Date.now();
     this.cleanup(now);
     const open = this.sql.exec('SELECT id FROM calls WHERE tbl = ? AND kind = ? AND done = 0 AND created >= ?',
@@ -184,6 +214,7 @@ export class Orders extends DurableObject {
     this.cleanup(now);
     // Limits per 10 minutes: 5 orders per table, 60 per internet connection
     // (guests on the restaurant WiFi share one address)
+    if (!this.tableNames()[order.table]) return { error: 'no_table', status: 400 };
     const sold = this.soldoutIn(order.lines);
     if (sold.length) return { error: 'soldout', items: sold, status: 409 };
     const since = now - 10 * 60 * 1000;
@@ -208,8 +239,10 @@ export class Orders extends DurableObject {
     return this.setting('ai') === '1' && !!this.env.ANTHROPIC_API_KEY;
   }
 
-  status() {
-    return { takeaway: this.takeawayEnabled(), ai: this.aiEnabled(), soldout: this.soldout() };
+  status(table) {
+    const res = { takeaway: this.takeawayEnabled(), ai: this.aiEnabled(), soldout: this.soldout() };
+    if (table) res.table = this.tableNames()[table] || null;
+    return res;
   }
 
   // For the admin page: switches plus today's AI usage
@@ -294,7 +327,7 @@ export class Orders extends DurableObject {
       FROM takeaway WHERE status IN ('new', 'accepted') AND created >= ? ORDER BY created`, now - DAY).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
     const calls = this.sql.exec('SELECT * FROM calls WHERE done = 0 AND created >= ? ORDER BY created', now - 2 * HOUR).toArray();
-    return { orders, takeaway, calls, soldout: this.soldout() };
+    return { orders, takeaway, calls, soldout: this.soldout(), tables: this.tables() };
   }
 
   done(id) {
@@ -328,7 +361,7 @@ export class Orders extends DurableObject {
     const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, lang, note, lines, total, discount, card, status, ready_at, closed
       FROM takeaway WHERE created >= ? AND created < ? ORDER BY created DESC`, from, to).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
-    return { table, takeaway };
+    return { table, takeaway, names: this.tableNames() };
   }
 
   cards() {
@@ -369,17 +402,34 @@ function validLines(lines) {
 }
 
 // Accept only a small, well-formed order
+const tableId = v => { const n = parseInt(v, 10); return n >= 1 && n <= 999 ? n : 0; };
+
+// Floor plan from the admin page
+function validTables(body) {
+  const list = Array.isArray(body?.tables) ? body.tables : null;
+  if (!list || list.length > 300) return null;
+  const ids = new Set(), out = [];
+  for (const t of list) {
+    const id = tableId(t?.id), name = str(t?.name, 20), area = AREAS.includes(t?.area) ? t.area : '';
+    const x = Number(t?.x), y = Number(t?.y), seats = parseInt(t?.seats, 10);
+    if (!id || ids.has(id) || !name || !area || !(x >= 0 && x <= 100) || !(y >= 0 && y <= 100) || !(seats >= 1 && seats <= 30)) return null;
+    ids.add(id);
+    out.push({ id, name, area, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, seats });
+  }
+  return out;
+}
+
 function validOrder(body) {
-  const table = parseInt(body?.table, 10);
-  if (!(table >= 1 && table <= TABLES)) return null;
+  const table = tableId(body?.table);
+  if (!table) return null;
   const lines = validLines(body.lines);
   if (!lines) return null;
   return { table, lines, note: str(body.note, 300), lang: str(body.lang, 4), total: str(body.total, 20) };
 }
 
 function validCall(body) {
-  const table = parseInt(body?.table, 10);
-  if (!(table >= 1 && table <= TABLES) || !['waiter', 'bill'].includes(body.kind)) return null;
+  const table = tableId(body?.table);
+  if (!table || !['waiter', 'bill'].includes(body.kind)) return null;
   const pay = body.kind === 'bill' && ['cash', 'card'].includes(body.pay) ? body.pay : null;
   return { table, kind: body.kind, pay };
 }
@@ -452,7 +502,12 @@ export default {
     }
 
     if (path === '/api/status' && request.method === 'GET') {
-      return json(await store.status(), 200, { ...c, 'Cache-Control': 'no-store' });
+      return json(await store.status(tableId(url.searchParams.get('stol'))), 200, { ...c, 'Cache-Control': 'no-store' });
+    }
+
+    if (path === '/api/tables' && request.method === 'GET') {
+      const list = (await store.tables()).map(t => ({ id: t.id, name: t.name, area: t.area }));
+      return json({ tables: list }, 200, { ...c, 'Cache-Control': 'no-store' });
     }
 
     if (path === '/api/chat' && request.method === 'POST') {
@@ -552,6 +607,16 @@ export default {
       }
       if (path === '/api/admin/settings' && request.method === 'GET') {
         return json(await store.adminStatus());
+      }
+      if (path === '/api/admin/tables' && request.method === 'GET') {
+        return json({ tables: await store.tables() });
+      }
+      if (path === '/api/admin/tables' && request.method === 'POST') {
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+        const list = validTables(body);
+        if (!list) return json({ error: 'invalid' }, 400);
+        return json(await store.saveTables(list));
       }
       if (path === '/api/admin/cards' && request.method === 'GET') {
         return json({ cards: await store.cards(), tiers: tiers(env) });

@@ -25,6 +25,7 @@ Otvoriti adresu Workera u pregledniku tableta, upisati `WAITER_PIN` i dodirnuti 
 `https://deveron-gastro-pub.t-matkovicml.workers.dev/admin` → `ADMIN_PIN` ili `OWNER_PIN`.
 - **Narudžbe**: sve narudžbe za stolom i za van po razdoblju (danas, jučer, 7/30 dana, mjesec, od–do), zbrojevi, najprodavanije, izvoz u CSV.
 - **Loyalty kartice**: anonimni kodovi, potrošnja, popust, brisanje.
+- **Tlocrt**: stolovi terase i restorana. Stol se povuče na novo mjesto, a dodirom mu se mijenja naziv, broj mjesta i prostor; tu se i dodaje ili briše. Broj u QR kodu (`?stol=12`) se ne mijenja, pa se QR kartice tiskaju samo za nove stolove (`deveronpub.com/qr.html` uvijek pokazuje trenutne nazive).
 - **Narudžbe za van na webu**: prekidač Pauziraj / Uključi (zadano pauzirano). Dok je pauzirano, gumb „Naruči za van" je skriven, a Worker odbija narudžbe za van.
 
 ## AI asistent
@@ -40,13 +41,14 @@ Kartica „AI Chat" vidi se samo kad je ključ upisan i prekidač uključen. Ogr
 - `POST /api/takeaway` – narudžba za van (08:00–21:30, ne 25.12.; najviše 3 po mobitelu na sat)
 - `GET /api/takeaway/:id?token=` – stanje narudžbe za van (`new`, `accepted`, `rejected`, `done`)
 - `GET /api/loyalty?card=` – popust i potrošnja loyalty kartice
-- `GET /api/status` – jesu li narudžbe za van i AI asistent uključeni, i što je danas rasprodano
+- `GET /api/status?stol=12` – jesu li narudžbe za van i AI asistent uključeni, što je danas rasprodano i naziv stola
+- `GET /api/tables` – stolovi (id, naziv, prostor) za QR kartice
 - `POST /api/call` – gost sa stola zove konobara ili traži račun `{table, kind: waiter|bill, pay?: cash|card}`
 - `POST /api/chat` – pitanje AI asistentu `{messages, lang}` → `{reply}` (samo s deveronpub.com)
 - `GET /api/orders` – otvorene narudžbe (zaglavlje `X-Waiter-Pin`)
 - `POST /api/orders/:id/done`, `POST /api/takeaway/:id/accept|reject|done`, `POST /api/calls/:id/done`,
   `GET /api/menu-names`, `POST /api/soldout {name, on}` (zaglavlje `X-Waiter-Pin`)
-- `GET /api/admin/orders?from=&to=`, `GET /api/admin/cards`, `DELETE /api/admin/cards/:code`, `GET|POST /api/admin/settings` (zaglavlje `X-Admin-Pin`)
+- `GET /api/admin/orders?from=&to=`, `GET /api/admin/cards`, `DELETE /api/admin/cards/:code`, `GET|POST /api/admin/settings`, `GET|POST /api/admin/tables` (zaglavlje `X-Admin-Pin`)
 
 Čuvanje: narudžbe (stol i za van) godinu dana; ime i mobitel gosta za van 7 dana; loyalty kartice 2 godine od zadnjeg korištenja. Tablet prikazuje samo otvorene narudžbe iz zadnja 24 sata.
 Lokalno testiranje: `npx wrangler dev` uz datoteku `.dev.vars` (npr. `WAITER_PIN=1234`, `ADMIN_PIN=9999`, `OWNER_PIN=8888`).
