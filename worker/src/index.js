@@ -9,6 +9,9 @@
 //   POST /api/chat                     {messages, lang} → {reply}  AI assistant (Claude)
 //   POST /api/call                     {table, kind: waiter|bill, pay?: cash|card}  call the waiter / ask for the bill
 //   GET  /api/tables                   [{id, name, area}] – table names for the QR cards and the site
+//   POST /api/reservation              {day, time, guests, area, name, phone, note, lang} → {id, token}
+//   GET  /api/reservation/:id?token=   {state: new|confirmed|rejected|cancelled|arrived|noshow, tables}
+//   POST /api/reservation/:id/cancel   {token}  guest cancels
 // Tables are kept by a fixed id (the number in the QR code, ?stol=12); the name, place on the
 // floor plan and seats can be changed in the admin page without reprinting the QR cards.
 // Waiter tablet (X-Waiter-Pin = WAITER_PIN):
@@ -20,6 +23,9 @@
 //   POST /api/calls/:id/done           guest's call handled
 //   GET  /api/menu-names               dishes and drinks for the sold-out list
 //   POST /api/soldout                  {name, on}  mark an item sold out for today
+//   GET  /api/reservations?day=        reservations of a day (plus all waiting for confirmation)
+//   POST /api/reservations             phone booking {day, time, guests, name, phone, note, tables}
+//   POST /api/reservations/:id/(confirm|reject|arrived|noshow|cancel)  {tables?}
 // Admins (X-Admin-Pin = ADMIN_PIN or OWNER_PIN, two separate logins with the same rights):
 //   GET  /api/admin/orders?from=&to=   all table and takeaway orders in a period
 //   GET  /api/admin/cards              loyalty cards
@@ -42,6 +48,10 @@ const SITE_ORIGINS = ['https://deveronpub.com', 'https://www.deveronpub.com'];
 // Terrace as in the till (x, y = centre in per cent of the floor plan); ids stay the QR numbers
 const DEFAULT_TABLES = [[1,"S-1",6.2,67.2],[2,"S-2",16.3,67.2],[3,"S-3",26.3,67.2],[4,"S-4",36.4,67.2],[5,"S-5",5.7,53.6],[6,"S-6",15.8,53.6],[7,"S-7",26,53.6],[8,"S-8",35.9,53.6],[9,"S-9",45.4,53.6],[10,"S-10",6.6,38.8],[11,"S-11",30.8,38.8],[12,"S-12",5.7,21.3],[13,"S-13",29.2,21.3],[14,"S-14",44,21.3],[15,"S-15",55.6,67.2],[16,"S-16",67.9,67.2],[17,"S-17",80.9,67.2],[18,"S-18",92.6,67.2],[19,"S-19",55.4,53.6],[20,"S-20",67.4,53.6],[21,"S-21",80.7,53.6],[22,"S-22",92.8,53.6],[23,"S-23",55.7,38.8],[24,"S-24",67.7,38.8],[25,"S-25",80.9,38.8],[26,"S-26",92.8,38.8],[27,"S-27",55.3,21.3],[28,"S-28",67.8,21.3],[29,"S-29",80.7,21.3],[30,"S-30",93.2,21.3],[31,"S-31",9.5,92.9],[32,"S-32",20.1,92.9],[33,"S-33",79,92.9],[34,"S-34",90.6,92.9],[35,"VATRA 1",17.8,38.8],[36,"VATRA 2",16,21.3],[37,"DINO 05",46.1,92.9]];
 const AREAS = ['terasa', 'restoran'];
+// Online reservations: every 30 min from 12:00 to 21:30, up to 12 guests, 60 days ahead,
+// at least an hour in advance. Name and phone are removed 30 days after the visit.
+const RES_FROM = 12 * 60, RES_UNTIL = 21 * 60 + 30, RES_STEP = 30, RES_MAX_GUESTS = 12, RES_DAYS = 60;
+const KEEP_RES_CONTACT_DAYS = 30;
 const HOUR = 3600 * 1000, DAY = 24 * HOUR;
 const KEEP_ORDERS = 365 * DAY, KEEP_CONTACT = 7 * DAY, KEEP_CARDS = 730 * DAY;
 const TAKEAWAY_FROM = 8 * 60, TAKEAWAY_UNTIL = 21 * 60 + 30;   // minutes of the day, Croatian time
@@ -58,6 +68,8 @@ function zagrebNow() {
 function zagrebDay() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Zagreb' });
 }
+const addDays = (day, n) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const isClosedDay = day => CLOSED_DAYS.some(([m, d]) => +day.slice(5, 7) === m && +day.slice(8, 10) === d);
 function takeawayOpen() {
   const z = zagrebNow();
   if (CLOSED_DAYS.some(([m, d]) => m === z.month && d === z.day)) return false;
@@ -120,8 +132,13 @@ export class Orders extends DurableObject {
       status TEXT NOT NULL DEFAULT 'new', ready_at INTEGER, closed INTEGER)`);
     // Settings changed from the admin page; takeaway starts paused until switched on
     this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
-    this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', '')");
+    this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', ''), ('res', '0')");
     this.sql.exec('CREATE TABLE IF NOT EXISTS soldout (name TEXT PRIMARY KEY, day TEXT NOT NULL)');
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS reservations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, token TEXT NOT NULL, source TEXT NOT NULL,
+      day TEXT NOT NULL, time TEXT NOT NULL, guests INTEGER NOT NULL, area TEXT, name TEXT, phone TEXT, note TEXT,
+      lang TEXT, status TEXT NOT NULL DEFAULT 'new', tables TEXT NOT NULL DEFAULT '[]', decided INTEGER)`);
+    this.sql.exec('CREATE INDEX IF NOT EXISTS res_day ON reservations (day)');
     this.sql.exec(`CREATE TABLE IF NOT EXISTS tables (
       id INTEGER PRIMARY KEY, name TEXT NOT NULL, area TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL,
       seats INTEGER NOT NULL DEFAULT 4)`);
@@ -145,6 +162,80 @@ export class Orders extends DurableObject {
     this.sql.exec("UPDATE takeaway SET name = '', phone = '' WHERE created < ? AND phone != ''", now - KEEP_CONTACT);
     this.sql.exec('DELETE FROM cards WHERE COALESCE(last_used, created) < ?', now - KEEP_CARDS);
     this.sql.exec('DELETE FROM calls WHERE created < ?', now - DAY);
+    this.sql.exec('DELETE FROM reservations WHERE created < ?', now - KEEP_ORDERS);
+    this.sql.exec("UPDATE reservations SET name = '', phone = '' WHERE day < ? AND phone != ''", addDays(zagrebDay(), -KEEP_RES_CONTACT_DAYS));
+  }
+
+  // ---- reservations ----
+  resEnabled() {
+    return this.setting('res') === '1';
+  }
+
+  resRow(r) {
+    const names = this.tableNames();
+    const ids = JSON.parse(r.tables || '[]');
+    return { ...r, tables: ids, table_names: ids.map(i => names[i] || String(i)) };
+  }
+
+  addReservation(r, ip) {
+    if (!this.resEnabled()) return { error: 'paused', status: 403 };
+    const now = Date.now();
+    this.cleanup(now);
+    if (this.count('rp:' + r.phone, now - DAY) >= 3 || this.count('rip:' + ip, now - 10 * 60 * 1000) >= 10) return { error: 'too_many', status: 429 };
+    this.sql.exec('INSERT INTO limits (k, at) VALUES (?, ?), (?, ?)', 'rp:' + r.phone, now, 'rip:' + ip, now);
+    const token = crypto.randomUUID();
+    const row = this.sql.exec(`INSERT INTO reservations (created, token, source, day, time, guests, area, name, phone, note, lang)
+      VALUES (?, ?, 'web', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      now, token, r.day, r.time, r.guests, r.area, r.name, r.phone, r.note, r.lang).one();
+    return { id: row.id, token };
+  }
+
+  // Phone booking entered on the tablet: confirmed straight away
+  addPhoneReservation(r) {
+    const row = this.sql.exec(`INSERT INTO reservations (created, token, source, day, time, guests, area, name, phone, note, lang, status, tables, decided)
+      VALUES (?, ?, 'phone', ?, ?, ?, '', ?, ?, ?, 'HR', 'confirmed', ?, ?) RETURNING id`,
+      Date.now(), crypto.randomUUID(), r.day, r.time, r.guests, r.name, r.phone, r.note, JSON.stringify(r.tables), Date.now()).one();
+    return { id: row.id };
+  }
+
+  reservationStatus(id, token) {
+    const r = this.sql.exec('SELECT * FROM reservations WHERE id = ? AND token = ?', id, token).toArray()[0];
+    if (!r) return { error: 'not_found', status: 404 };
+    const x = this.resRow(r);
+    return { state: x.status, day: x.day, time: x.time, guests: x.guests, tables: x.table_names };
+  }
+
+  cancelReservation(id, token) {
+    const r = this.sql.exec('SELECT status FROM reservations WHERE id = ? AND token = ?', id, token).toArray()[0];
+    if (!r) return { error: 'not_found', status: 404 };
+    if (r.status === 'new' || r.status === 'confirmed')
+      this.sql.exec("UPDATE reservations SET status = 'cancelled', decided = ? WHERE id = ?", Date.now(), id);
+    return { ok: true };
+  }
+
+  reservations(day) {
+    const rows = this.sql.exec(`SELECT * FROM reservations WHERE day = ? OR (status = 'new' AND day >= ?)
+      ORDER BY day, time, id`, day, zagrebDay()).toArray();
+    return { reservations: rows.map(r => this.resRow(r)), tables: this.tables(), day };
+  }
+
+  setReservation(id, action, tables) {
+    const r = this.sql.exec('SELECT * FROM reservations WHERE id = ?', id).toArray()[0];
+    if (!r) return { error: 'not_found', status: 404 };
+    const status = { confirm: 'confirmed', reject: 'rejected', arrived: 'arrived', noshow: 'noshow', cancel: 'cancelled' }[action];
+    if (action === 'confirm') {
+      const known = this.tableNames();
+      const ids = (tables || []).filter(i => known[i]);
+      this.sql.exec('UPDATE reservations SET status = ?, tables = ?, decided = ? WHERE id = ?', status, JSON.stringify(ids), Date.now(), id);
+    } else {
+      this.sql.exec('UPDATE reservations SET status = ?, decided = ? WHERE id = ?', status, Date.now(), id);
+    }
+    return { ok: true };
+  }
+
+  resHistory(from, to) {
+    return this.sql.exec('SELECT * FROM reservations WHERE day >= ? AND day <= ? ORDER BY day, time', from, to).toArray()
+      .map(r => this.resRow(r));
   }
 
   // ---- tables and floor plan ----
@@ -240,7 +331,7 @@ export class Orders extends DurableObject {
   }
 
   status(table) {
-    const res = { takeaway: this.takeawayEnabled(), ai: this.aiEnabled(), soldout: this.soldout() };
+    const res = { takeaway: this.takeawayEnabled(), ai: this.aiEnabled(), soldout: this.soldout(), reservations: this.resEnabled() };
     if (table) res.table = this.tableNames()[table] || null;
     return res;
   }
@@ -255,6 +346,7 @@ export class Orders extends DurableObject {
   setSettings(s) {
     if (typeof s.takeaway === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'takeaway'", s.takeaway ? '1' : '0');
     if (typeof s.ai === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'ai'", s.ai ? '1' : '0');
+    if (typeof s.res === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'res'", s.res ? '1' : '0');
     return this.adminStatus();
   }
 
@@ -327,7 +419,10 @@ export class Orders extends DurableObject {
       FROM takeaway WHERE status IN ('new', 'accepted') AND created >= ? ORDER BY created`, now - DAY).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
     const calls = this.sql.exec('SELECT * FROM calls WHERE done = 0 AND created >= ? ORDER BY created', now - 2 * HOUR).toArray();
-    return { orders, takeaway, calls, soldout: this.soldout(), tables: this.tables() };
+    const today = zagrebDay();
+    const res = this.sql.exec(`SELECT * FROM reservations WHERE (status = 'new' AND day >= ?)
+      OR (day = ? AND status IN ('confirmed', 'arrived')) ORDER BY day, time`, today, today).toArray().map(r => this.resRow(r));
+    return { orders, takeaway, calls, soldout: this.soldout(), tables: this.tables(), reservations: res, today };
   }
 
   done(id) {
@@ -425,6 +520,31 @@ function validOrder(body) {
   const lines = validLines(body.lines);
   if (!lines) return null;
   return { table, lines, note: str(body.note, 300), lang: str(body.lang, 4), total: str(body.total, 20) };
+}
+
+function validDayTime(day, time, online) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return false;
+  const today = zagrebDay(), min = +time.slice(0, 2) * 60 + +time.slice(3);
+  if (!online) return day >= addDays(today, -1) && day <= addDays(today, 366) && min >= 0 && min < 24 * 60;
+  if (day < today || day > addDays(today, RES_DAYS) || isClosedDay(day)) return false;
+  if (min < RES_FROM || min > RES_UNTIL || (min - RES_FROM) % RES_STEP) return false;
+  return day > today || min >= zagrebNow().min + 60;
+}
+
+function validReservation(body) {
+  const day = str(body?.day, 10), time = str(body?.time, 5), guests = parseInt(body?.guests, 10);
+  const name = str(body?.name, 60), phone = normPhone(body?.phone);
+  if (!validDayTime(day, time, true) || !(guests >= 1 && guests <= RES_MAX_GUESTS) || !name || !phone) return null;
+  const area = AREAS.includes(body.area) ? body.area : '';
+  return { day, time, guests, area, name, phone, note: str(body.note, 300), lang: str(body.lang, 4) };
+}
+
+function validPhoneReservation(body) {
+  const day = str(body?.day, 10), time = str(body?.time, 5), guests = parseInt(body?.guests, 10);
+  const name = str(body?.name, 60);
+  if (!validDayTime(day, time, false) || !(guests >= 1 && guests <= 200) || !name) return null;
+  const tables = Array.isArray(body.tables) ? body.tables.map(tableId).filter(Boolean).slice(0, 20) : [];
+  return { day, time, guests, name, phone: normPhone(body.phone) || str(body.phone, 30), note: str(body.note, 300), tables };
 }
 
 function validCall(body) {
@@ -536,6 +656,29 @@ export default {
       return json(res, res.status || 200, c);
     }
 
+    if (path === '/api/reservation' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400, c); }
+      const r = validReservation(body);
+      if (!r) return json({ error: 'invalid' }, 400, c);
+      const res = await store.addReservation(r, ip);
+      return json(res, res.status || 200, c);
+    }
+
+    m = path.match(/^\/api\/reservation\/(\d+)$/);
+    if (m && request.method === 'GET') {
+      const res = await store.reservationStatus(+m[1], url.searchParams.get('token') || '');
+      return json(res, res.status || 200, { ...c, 'Cache-Control': 'no-store' });
+    }
+
+    m = path.match(/^\/api\/reservation\/(\d+)\/cancel$/);
+    if (m && request.method === 'POST') {
+      let body = {};
+      try { body = await request.json(); } catch {}
+      const res = await store.cancelReservation(+m[1], str(body.token, 60));
+      return json(res, res.status || 200, c);
+    }
+
     if (path === '/api/loyalty' && request.method === 'GET') {
       const code = normCard(url.searchParams.get('card'));
       return json(code ? await store.loyalty(code) : { valid: false }, 200, { ...c, 'Cache-Control': 'no-store' });
@@ -560,6 +703,34 @@ export default {
       const err = pinError(request, env);
       if (err) return json({ error: err }, 401);
       return json(await store.callDone(+m[1]));
+    }
+
+    if (path === '/api/reservations' && request.method === 'GET') {
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get('day') || '') ? url.searchParams.get('day') : zagrebDay();
+      return json(await store.reservations(day));
+    }
+
+    if (path === '/api/reservations' && request.method === 'POST') {
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
+      let body;
+      try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+      const r = validPhoneReservation(body);
+      if (!r) return json({ error: 'invalid' }, 400);
+      return json(await store.addPhoneReservation(r));
+    }
+
+    m = path.match(/^\/api\/reservations\/(\d+)\/(confirm|reject|arrived|noshow|cancel)$/);
+    if (m && request.method === 'POST') {
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
+      let body = {};
+      try { body = await request.json(); } catch {}
+      const tables = Array.isArray(body.tables) ? body.tables.map(tableId).filter(Boolean).slice(0, 20) : [];
+      const res = await store.setReservation(+m[1], m[2], tables);
+      return json(res, res.status || 200);
     }
 
     if (path === '/api/menu-names' && request.method === 'GET') {
@@ -607,6 +778,11 @@ export default {
       }
       if (path === '/api/admin/settings' && request.method === 'GET') {
         return json(await store.adminStatus());
+      }
+      if (path === '/api/admin/reservations' && request.method === 'GET') {
+        const from = str(url.searchParams.get('from'), 10), to = str(url.searchParams.get('to'), 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return json({ error: 'invalid' }, 400);
+        return json({ reservations: await store.resHistory(from, to) });
       }
       if (path === '/api/admin/tables' && request.method === 'GET') {
         return json({ tables: await store.tables() });

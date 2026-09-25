@@ -67,7 +67,7 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
 <body>
 <header>
   <h1>DEVERON · ADMINISTRACIJA</h1>
-  <nav><button id="nav-o" class="on" onclick="tab('o')">Narudžbe</button><button id="nav-c" onclick="tab('c')">Loyalty kartice</button><button id="nav-t" onclick="tab('t')">Tlocrt</button><button onclick="logout()">Odjava</button></nav>
+  <nav><button id="nav-o" class="on" onclick="tab('o')">Narudžbe</button><button id="nav-c" onclick="tab('c')">Loyalty kartice</button><button id="nav-r" onclick="tab('r')">Rezervacije</button><button id="nav-t" onclick="tab('t')">Tlocrt</button><button onclick="logout()">Odjava</button></nav>
 </header>
 
 <main>
@@ -75,6 +75,10 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
     <div class="box switch">
       <div><b>Narudžbe za van na webu</b><div class="muted" id="tk-state">…</div></div>
       <button id="tk-toggle" onclick="toggleTakeaway()">…</button>
+    </div>
+    <div class="box switch">
+      <div><b>Online rezervacije na webu</b><div class="muted" id="res-state">…</div></div>
+      <button id="res-toggle" onclick="toggleRes()">…</button>
     </div>
     <div class="box switch">
       <div><b>AI asistent na webu</b><div class="muted" id="ai-state">…</div></div>
@@ -100,6 +104,22 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
       <div class="box"><b>Najprodavanije</b><table style="margin-top:.5rem"><tbody id="top"></tbody></table></div>
     </div>
     <p class="hint">Iznosi su prema narudžbama poslanim s mobitela, ne prema blagajni. Ime i mobitel gosta za van brišu se nakon 7 dana; narudžbe ostaju godinu dana, bez osobnih podataka. Osvježava se svakih 30 s.</p>
+  </section>
+
+  <section id="tab-r" hidden>
+    <div class="box tools">
+      <button data-rp="0" class="on" onclick="resPeriod(0,this)">Danas</button>
+      <button data-rp="1" onclick="resPeriod(1,this)">Sutra</button>
+      <button data-rp="7" onclick="resPeriod(7,this)">Sljedećih 7 dana</button>
+      <button data-rp="-30" onclick="resPeriod(-30,this)">Zadnjih 30 dana</button>
+      <input type="date" id="r-from" onchange="resCustom()"/> – <input type="date" id="r-to" onchange="resCustom()"/>
+    </div>
+    <div class="box stats" id="r-stats"></div>
+    <div class="box wrap"><table>
+      <thead><tr><th>Dan</th><th>Vrijeme</th><th class="num">Osoba</th><th>Gost</th><th>Stol</th><th>Stanje</th><th>Napomena</th></tr></thead>
+      <tbody id="r-rows"></tbody>
+    </table></div>
+    <p class="hint">Rezervacije potvrđuju konobari na tabletu (📅 Rezervacije). Ime i mobitel gosta brišu se 30 dana nakon posjeta.</p>
   </section>
 
   <section id="tab-t" hidden>
@@ -170,11 +190,45 @@ function login(){
 function logout(){ sessionStorage.removeItem('deveron-admin'); location.reload(); }
 
 function tab(t){
-  ['o', 'c', 't'].forEach(function(x){
+  ['o', 'c', 'r', 't'].forEach(function(x){
     document.getElementById('tab-' + x).hidden = t !== x; document.getElementById('nav-' + x).className = t === x ? 'on' : '';
   });
   if (t === 'c') loadCards();
   if (t === 't') loadTables();
+  if (t === 'r') resPeriod(0, document.querySelector('[data-rp="0"]'));
+}
+
+// ---- reservations ----
+var R_ST = {new: ['Čeka potvrdu', 'st-open'], confirmed: ['Potvrđena', 'st-ok'], arrived: ['Stigli', 'st-ok'],
+  rejected: ['Odbijena', 'st-no'], cancelled: ['Otkazana', 'st-no'], noshow: ['Nisu došli', 'st-no']};
+function resPeriod(n, btn){
+  var today = isoDay(Date.now()), d = function(k){ return isoDay(Date.now() + k * 86400000); };
+  var from = n < 0 ? d(n) : n === 7 ? today : d(n), to = n < 0 ? today : n === 7 ? d(7) : d(n);
+  document.querySelectorAll('[data-rp]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  document.getElementById('r-from').value = from; document.getElementById('r-to').value = to;
+  loadResv(from, to);
+}
+function resCustom(){
+  var f = document.getElementById('r-from').value, t = document.getElementById('r-to').value;
+  if (f && t) { document.querySelectorAll('[data-rp]').forEach(function(b){ b.classList.remove('on'); }); loadResv(f, t); }
+}
+function loadResv(from, to){
+  api('/api/admin/reservations?from=' + from + '&to=' + to).then(function(d){
+    var r = d.reservations, ok = r.filter(function(x){ return x.status === 'confirmed' || x.status === 'arrived'; });
+    var sum = function(l){ return l.reduce(function(a, x){ return a + x.guests; }, 0); };
+    document.getElementById('r-stats').innerHTML =
+      '<div class="stat"><b>' + r.length + '</b><span>rezervacija ukupno</span></div>' +
+      '<div class="stat"><b>' + ok.length + ' · ' + sum(ok) + ' os.</b><span>potvrđeno</span></div>' +
+      '<div class="stat"><b>' + r.filter(function(x){ return x.status === 'new'; }).length + '</b><span>čeka potvrdu</span></div>' +
+      '<div class="stat"><b>' + r.filter(function(x){ return x.status === 'noshow'; }).length + '</b><span>nisu došli</span></div>' +
+      '<div class="stat"><b>' + r.filter(function(x){ return x.source === 'web'; }).length + '</b><span>preko weba</span></div>';
+    document.getElementById('r-rows').innerHTML = r.length ? r.map(function(x){
+      var st = R_ST[x.status] || [x.status, ''];
+      return '<tr><td>' + new Date(x.day + 'T12:00:00').toLocaleDateString('hr-HR') + '</td><td>' + esc(x.time) + '</td><td class="num">' + x.guests + '</td>' +
+        '<td>' + esc(x.name || '–') + (x.phone ? '<div class="muted">' + esc(x.phone) + '</div>' : '') + (x.source === 'phone' ? '<div class="muted">📞 telefon</div>' : '') + '</td>' +
+        '<td>' + esc(x.table_names.join(' + ') || '–') + '</td><td><span class="st ' + st[1] + '">' + st[0] + '</span></td><td class="muted">' + esc(x.note || '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="muted" style="text-align:center;padding:2rem">Nema rezervacija u odabranom razdoblju</td></tr>';
+  });
 }
 
 // ---- floor plan editor ----
@@ -285,6 +339,11 @@ function drawSwitch(){
   document.getElementById('ai-state').innerHTML = !SET.ai_key ? '<span style="color:#b26a00;font-weight:bold">● Nije spojeno</span> – u Cloudflareu nedostaje ANTHROPIC_API_KEY.'
     : ai ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gosti mogu postavljati pitanja.' + usage
     : '<span style="color:#b71c1c;font-weight:bold">● Pauzirano</span> – kartica AI asistenta je skrivena.' + usage;
+  var rs = SET.reservations;
+  document.getElementById('res-state').innerHTML = rs ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gumb „Rezerviraj” otvara naš obrazac, rezervacije stižu na tablet.'
+    : '<span style="color:#b71c1c;font-weight:bold">● Isključeno</span> – gumb „Rezerviraj” vodi na resOS kao dosad.';
+  var rb = document.getElementById('res-toggle');
+  rb.textContent = rs ? '⏸ Isključi' : '▶ Uključi rezervacije'; rb.className = rs ? 'on' : 'off';
   var a = document.getElementById('ai-toggle');
   a.textContent = ai ? '⏸ Pauziraj' : '▶ Uključi AI asistenta'; a.className = ai ? 'on' : 'off';
 }
@@ -296,6 +355,7 @@ function setSetting(obj, btn){
     .catch(function(){ btn.disabled = false; });
 }
 function toggleTakeaway(){ setSetting({takeaway: !SET.takeaway}, document.getElementById('tk-toggle')); }
+function toggleRes(){ setSetting({res: !SET.reservations}, document.getElementById('res-toggle')); }
 function toggleAI(){ setSetting({ai: !SET.ai_switch}, document.getElementById('ai-toggle')); }
 
 function loadOrders(){

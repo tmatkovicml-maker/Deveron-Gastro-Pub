@@ -50,7 +50,6 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .overlay p{color:#cfd6e0;max-width:28rem;}
 #pin-err{color:#ff8a80;min-height:1.2em;}
 .hdr-r{display:flex;gap:.8rem;align-items:center;}
-#plan-btn{background:none;color:var(--gold);border:1px solid var(--gold);border-radius:8px;padding:.45rem .8rem;font-weight:bold;font-size:.95rem;cursor:pointer;}
 #plan{padding:1rem;}
 #plan[hidden],#grid[hidden]{display:none;}
 .plan-tabs{display:flex;gap:.5rem;margin-bottom:.6rem;}
@@ -61,6 +60,33 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .ft small{font-weight:normal;font-size:.7em;color:#444;}
 .ft.order{background:#fff1c1;border-color:var(--gold);}
 .ft.call{background:#ffcdd2;border-color:#d32f2f;animation:flash 1s infinite;}
+.ft.res{background:#e1f5fe;border-color:#0277bd;}
+.ft.pick{cursor:pointer;}
+.ft.busy{background:#cfd8dc;color:#78909c;}
+.ft.chosen{background:#c8e6c9;border-color:#1b7f3b;outline:3px solid #1b7f3b;}
+.card.rsv{border-top-color:#ef6c00;background:#fffaf3;}
+.rsv-when{font-size:1.35rem;font-weight:bold;color:#ef6c00;margin:.2rem 0;}
+.view{display:flex;gap:.3rem;}
+.view button{background:none;color:var(--gold);border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:.45rem .8rem;font-weight:bold;font-size:.95rem;cursor:pointer;}
+.view button.on{background:var(--gold);color:var(--navy);}
+#resv{padding:1rem;max-width:900px;}
+#resv[hidden]{display:none;}
+.rday{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.8rem;}
+.rday button,.rday input{padding:.55rem .9rem;border:1px solid #bbb;border-radius:8px;background:#fff;font-size:1rem;cursor:pointer;}
+.rday .new{background:var(--green);color:#fff;border:none;font-weight:bold;margin-left:auto;}
+.rrow{background:#fff;border-radius:10px;padding:.8rem 1rem;margin-bottom:.6rem;box-shadow:0 1px 4px rgba(0,0,0,.08);display:grid;grid-template-columns:4.5rem 1fr auto;gap:.8rem;align-items:center;border-left:6px solid #0277bd;}
+.rrow.new{border-left-color:#ef6c00;} .rrow.arrived{border-left-color:#1b7f3b;} .rrow.off{border-left-color:#bbb;opacity:.6;}
+.rrow .t{font-size:1.4rem;font-weight:bold;}
+.rrow .who{font-size:1.1rem;margin:0;}
+.rrow .sub{color:#555;font-size:.95rem;}
+.rrow .acts{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end;}
+.rrow .acts button,.rrow .acts a{border:none;border-radius:8px;padding:.55rem .7rem;font-weight:bold;cursor:pointer;text-decoration:none;font-size:.95rem;}
+.chip{display:inline-block;font-size:.8rem;font-weight:bold;padding:.1rem .45rem;border-radius:5px;background:#e3f2fd;color:#0277bd;}
+.chip.new{background:#fff3e0;color:#ef6c00;} .chip.arrived{background:#e8f5e9;color:#1b7f3b;} .chip.off{background:#eee;color:#777;}
+.pick-info{margin:.6rem 0;font-size:1.05rem;}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.6rem;margin:1rem 0;}
+.form label{display:flex;flex-direction:column;font-size:.85rem;color:#555;gap:.2rem;}
+.form input,.form select{padding:.6rem;border:1px solid #ccc;border-radius:8px;font-size:1rem;}
 .plan-legend{margin-top:.6rem;color:#555;font-size:.9rem;display:flex;gap:1rem;flex-wrap:wrap;}
 #so-btn{background:#fff;color:#b71c1c;border:none;border-radius:8px;padding:.45rem .8rem;font-weight:bold;font-size:.95rem;cursor:pointer;}
 .card.call{border-top-color:#d32f2f;background:#fff5f5;}
@@ -82,7 +108,7 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 </style>
 </head>
 <body>
-<header><h1>DEVERON · NARUDŽBE</h1><div class="hdr-r"><button id="plan-btn" onclick="togglePlan()">🗺 Tlocrt</button><button id="so-btn" onclick="openSoldout()">🚫 Rasprodano</button><div id="status">…</div></div></header>
+<header><h1>DEVERON · NARUDŽBE</h1><div class="hdr-r"><div class="view"><button id="v-orders" class="on" onclick="setView('orders')">☰ Narudžbe</button><button id="v-plan" onclick="setView('plan')">🗺 Tlocrt</button><button id="v-res" onclick="setView('res')">📅 Rezervacije</button></div><button id="so-btn" onclick="openSoldout()">🚫 Rasprodano</button><div id="status">…</div></div></header>
 <div class="sheet" id="so-sheet" hidden onclick="if(event.target===this)closeSoldout()">
   <div class="sheet-box">
     <div class="sheet-head"><h2>🚫 RASPRODANO DANAS</h2><button onclick="closeSoldout()" aria-label="Zatvori">✕</button></div>
@@ -94,10 +120,31 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
   </div>
 </div>
 <div id="grid"></div>
+<div id="resv" hidden>
+  <div class="rday">
+    <button onclick="resDay(-1)">◀</button><input type="date" id="r-day" onchange="loadRes(this.value)"/><button onclick="resDay(1)">▶</button>
+    <button onclick="loadRes(TODAY)">Danas</button>
+    <button class="new" onclick="phoneRes()">＋ Rezervacija (telefon)</button>
+  </div>
+  <div id="r-list">Učitavanje…</div>
+</div>
+<div class="sheet" id="pick-sheet" hidden onclick="if(event.target===this)closePick()">
+  <div class="sheet-box" style="width:min(1100px,100%)">
+    <div class="sheet-head"><h2 id="pick-title">ODABERITE STOL</h2><button onclick="closePick()" aria-label="Zatvori">✕</button></div>
+    <div class="sheet-body">
+      <div id="pick-form"></div>
+      <div class="plan-tabs" id="pick-tabs" style="margin-top:1rem"></div>
+      <div class="floor" id="pick-floor"></div>
+      <div class="pick-info" id="pick-info"></div>
+      <div class="btns"><button class="b-ok" id="pick-ok" onclick="pickOk()">✓ Potvrdi</button><button class="b-no" onclick="closePick()">Odustani</button></div>
+      <p style="color:#777;margin-top:.6rem;font-size:.9rem">Sivo = stol je zauzet drugom rezervacijom u razmaku od 2 sata. Može se odabrati više stolova (spajanje). Stol nije obavezan.</p>
+    </div>
+  </div>
+</div>
 <div id="plan" hidden>
   <div class="plan-tabs" id="plan-tabs"></div>
   <div class="floor" id="floor"></div>
-  <div class="plan-legend"><span>🟨 otvorena narudžba</span><span>🟥 poziv / račun</span><span>Stolove i nazive mijenja administrator (Tlocrt).</span></div>
+  <div class="plan-legend"><span>🟨 otvorena narudžba</span><span>🟥 poziv / račun</span><span>🟦 rezervirano danas</span><span>Stolove i nazive mijenja administrator (Tlocrt).</span></div>
 </div>
 
 <div class="overlay" id="login">
@@ -172,6 +219,17 @@ function ring(){
     o.frequency.value = 1568; o.connect(g); g.connect(audio.destination);
     g.gain.setValueAtTime(0.35, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.12);
     o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.13);
+  });
+}
+
+// New reservation: soft rising three-note chime
+function chime(){
+  if (!audio) return;
+  [523, 659, 784].forEach(function(f, i){
+    var o = audio.createOscillator(), g = audio.createGain(), t = i * 0.18;
+    o.frequency.value = f; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.35, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.4);
+    o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.42);
   });
 }
 
@@ -274,11 +332,15 @@ function tname(id){
   var t = TABLES.filter(function(x){ return x.id === id; })[0];
   return t ? t.name : 'Stol ' + id;
 }
-function togglePlan(){
-  var p = document.getElementById('plan'), on = p.hidden;
-  p.hidden = !on; document.getElementById('grid').hidden = on;
-  document.getElementById('plan-btn').textContent = on ? '☰ Narudžbe' : '🗺 Tlocrt';
-  drawPlan();
+var VIEW = 'orders';
+function setView(v){
+  VIEW = v;
+  document.getElementById('grid').hidden = v !== 'orders';
+  document.getElementById('plan').hidden = v !== 'plan';
+  document.getElementById('resv').hidden = v !== 'res';
+  ['orders', 'plan', 'res'].forEach(function(x){ document.getElementById('v-' + x).className = x === v ? 'on' : ''; });
+  if (v === 'plan') drawPlan();
+  if (v === 'res') loadRes(RDAY || TODAY);
 }
 function setArea(a){ AREA = a; drawPlan(); }
 function drawPlan(){
@@ -288,14 +350,163 @@ function drawPlan(){
   document.getElementById('plan-tabs').innerHTML = areas.map(function(a){
     return '<button class="' + (a === AREA ? 'on' : '') + '" onclick="setArea(\'' + a + '\')">' + AREA_NAMES[a] + '</button>';
   }).join('');
-  var orders = {}, calls = {};
+  var orders = {}, calls = {}, resv = {}, nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  (LAST.reservations || []).forEach(function(r){
+    if (r.day !== LAST.today || r.status !== 'confirmed') return;
+    r.tables.forEach(function(id){ if (!resv[id] && hm2min(r.time) >= nowMin - 30) resv[id] = r; });
+  });
   LAST.orders.forEach(function(o){ orders[o.tbl] = (orders[o.tbl] || 0) + 1; });
   (LAST.calls || []).forEach(function(c){ calls[c.tbl] = c.kind === 'bill' ? '🧾' : '🙋'; });
   document.getElementById('floor').innerHTML = TABLES.filter(function(t){ return t.area === AREA; }).map(function(t){
-    var cls = calls[t.id] ? ' call' : orders[t.id] ? ' order' : '';
+    var cls = calls[t.id] ? ' call' : orders[t.id] ? ' order' : resv[t.id] ? ' res' : '';
+    var r = resv[t.id];
     return '<div class="ft' + cls + '" style="left:' + t.x + '%;top:' + t.y + '%">' + esc(t.name) +
-      '<small>' + (calls[t.id] || '') + (orders[t.id] ? ' 🧾' + orders[t.id] : '') + ' ' + t.seats + ' os.</small></div>';
+      '<small>' + (calls[t.id] || '') + (orders[t.id] ? ' 🧾' + orders[t.id] : '') +
+      (r ? ' 📅 ' + esc(r.time) + ' · ' + r.guests : ' ' + t.seats + ' os.') + '</small></div>';
   }).join('');
+}
+
+// ---- reservations ----
+var TODAY = '', RDAY = '', RLIST = [], PICK = null;
+var DAYS = ['ned', 'pon', 'uto', 'sri', 'čet', 'pet', 'sub'];
+var ST_R = {new: ['čeka potvrdu', 'new'], confirmed: ['potvrđeno', ''], arrived: ['stigli', 'arrived'], rejected: ['odbijeno', 'off'],
+  cancelled: ['otkazano', 'off'], noshow: ['nisu došli', 'off']};
+function hm2min(t){ return +t.slice(0, 2) * 60 + +t.slice(3, 5); }
+function dayLabel(d){
+  var x = new Date(d + 'T12:00:00');
+  var rel = d === TODAY ? 'danas' : d === addDay(TODAY, 1) ? 'sutra' : DAYS[x.getDay()];
+  return rel + ' ' + x.getDate() + '.' + (x.getMonth() + 1) + '.';
+}
+function addDay(d, n){ var x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
+var AREA_PREF = {terasa: 'želi terasu', restoran: 'želi unutra'};
+
+function resCard(r, isNew){
+  var tel = esc(r.phone);
+  return '<div class="card rsv' + (isNew ? ' new' : '') + '">' +
+    '<div class="tk-head"><div class="tbl" style="color:#ef6c00;font-size:1.6rem">📅 REZERVACIJA</div><div class="meta">#' + r.id + '</div></div>' +
+    '<div class="rsv-when">' + dayLabel(r.day) + ' u ' + esc(r.time) + ' · ' + r.guests + ' os.</div>' +
+    '<div class="who">' + esc(r.name) + ' · <a href="tel:' + tel + '">' + tel + '</a> ' + (FLAGS[r.lang] || '') + '</div>' +
+    (r.area ? '<div class="pick">' + AREA_PREF[r.area] + '</div>' : '') +
+    (r.note ? '<div class="note">Napomena: ' + esc(r.note) + '</div>' : '') +
+    '<div class="btns"><button class="b-ok" onclick="confirmRes(' + r.id + ')">✓ Potvrdi i odaberi stol</button></div>' +
+    '<div class="btns"><button class="b-no" onclick="resAct(' + r.id + ',\'reject\',this)">✗ Nema mjesta</button>' +
+    '<a class="b-call" href="tel:' + tel + '">📞 Nazovi</a></div></div>';
+}
+
+function resDay(n){ loadRes(addDay(RDAY || TODAY, n)); }
+function loadRes(day){
+  RDAY = day; document.getElementById('r-day').value = day;
+  api('/api/reservations?day=' + day).then(function(d){ RLIST = d.reservations; TABLES = d.tables; drawRes(); })
+    .catch(function(){ document.getElementById('r-list').textContent = 'Nema veze — provjerite internet.'; });
+}
+function drawRes(){
+  var list = RLIST.filter(function(r){ return r.day === RDAY; });
+  var waiting = RLIST.filter(function(r){ return r.status === 'new' && r.day !== RDAY; });
+  var guests = list.filter(function(r){ return r.status === 'confirmed' || r.status === 'arrived' || r.status === 'new'; })
+    .reduce(function(a, r){ return a + r.guests; }, 0);
+  var row = function(r){
+    var st = ST_R[r.status] || [r.status, ''], tel = esc(r.phone), acts = '';
+    if (r.status === 'new') acts = '<button class="b-ok" onclick="confirmRes(' + r.id + ')">✓ Potvrdi</button><button class="b-no" onclick="resAct(' + r.id + ',\'reject\',this)">✗</button>';
+    else if (r.status === 'confirmed') acts = '<button class="b-ok" onclick="resAct(' + r.id + ',\'arrived\',this)">✓ Stigli</button>' +
+      '<button class="b-call" onclick="confirmRes(' + r.id + ')">Stol</button>' +
+      '<button class="b-no" onclick="resAct(' + r.id + ',\'noshow\',this)">Nisu došli</button>' +
+      '<button class="b-no" onclick="resAct(' + r.id + ',\'cancel\',this)">Otkaži</button>';
+    if (r.phone) acts += '<a class="b-call" href="tel:' + tel + '">📞</a>';
+    return '<div class="rrow ' + st[1] + '"><div class="t">' + esc(r.time) + '<div class="sub">' + (r.day !== RDAY ? dayLabel(r.day) : r.guests + ' os.') + '</div></div>' +
+      '<div><div class="who">' + esc(r.name || '—') + (r.day !== RDAY ? ' · ' + r.guests + ' os.' : '') + '</div><div class="sub"><span class="chip ' + st[1] + '">' + st[0] + '</span> ' +
+      (r.table_names.length ? '· stol ' + esc(r.table_names.join(' + ')) + ' ' : '') + (r.area ? '· ' + AREA_PREF[r.area] + ' ' : '') +
+      (r.source === 'phone' ? '· 📞 telefon ' : '') + (r.note ? '· ' + esc(r.note) : '') + '</div></div>' +
+      '<div class="acts">' + acts + '</div></div>';
+  };
+  document.getElementById('r-list').innerHTML =
+    (waiting.length ? '<h3 style="margin:.4rem 0 .6rem;color:#ef6c00">Čeka potvrdu (drugi dani)</h3>' + waiting.map(row).join('') : '') +
+    '<h3 style="margin:.8rem 0 .6rem">' + dayLabel(RDAY) + ' · ' + list.length + ' rezervacija · ' + guests + ' osoba</h3>' +
+    (list.length ? list.map(row).join('') : '<p class="muted" style="color:#777">Nema rezervacija za ovaj dan.</p>');
+}
+function resAct(id, action, btn){
+  var q = {reject: 'Odbiti rezervaciju? Gost će vidjeti da nema mjesta.', cancel: 'Otkazati rezervaciju?', noshow: 'Označiti da gosti nisu došli?'}[action];
+  if (q && !confirm(q)) return;
+  btn.disabled = true;
+  api('/api/reservations/' + id + '/' + action, {method: 'POST', body: '{}'}).then(function(){ poll(); if (VIEW === 'res') loadRes(RDAY); })
+    .catch(function(){ btn.disabled = false; });
+}
+
+// Table picker on the floor plan (confirm, change table, phone booking)
+function confirmRes(id){
+  var r = (LAST.reservations || []).concat(RLIST).filter(function(x){ return x.id === id; })[0];
+  if (!r) return;
+  openPick({id: id, day: r.day, time: r.time, guests: r.guests, area: r.area, chosen: r.tables.slice(),
+    title: 'POTVRDA · ' + dayLabel(r.day).toUpperCase() + ' U ' + r.time + ' · ' + r.guests + ' OS.'});
+}
+function phoneRes(){
+  openPick({phone: true, day: RDAY || TODAY, time: '19:00', guests: 2, area: '', chosen: [], title: 'NOVA REZERVACIJA (TELEFON)'});
+}
+function openPick(p){
+  PICK = p; PICK.busy = {};
+  document.getElementById('pick-title').textContent = p.title;
+  document.getElementById('pick-form').innerHTML = p.phone ? '<div class="form">' +
+    '<label>Datum<input type="date" id="p-day" value="' + p.day + '" onchange="pickLoad()"/></label>' +
+    '<label>Vrijeme<input type="time" id="p-time" value="' + p.time + '" step="900" onchange="pickLoad()"/></label>' +
+    '<label>Osoba<input type="number" id="p-guests" min="1" max="200" value="' + p.guests + '" oninput="pickInfo()"/></label>' +
+    '<label>Ime<input id="p-name" maxlength="60"/></label>' +
+    '<label>Mobitel<input id="p-phone" type="tel" maxlength="30"/></label>' +
+    '<label>Napomena<input id="p-note" maxlength="300"/></label></div>' : '';
+  document.getElementById('pick-ok').textContent = p.phone ? '✓ Spremi rezervaciju' : '✓ Potvrdi';
+  document.getElementById('pick-sheet').hidden = false;
+  pickLoad();
+}
+function closePick(){ document.getElementById('pick-sheet').hidden = true; PICK = null; }
+function pickLoad(){
+  if (PICK.phone){ PICK.day = document.getElementById('p-day').value; PICK.time = document.getElementById('p-time').value; }
+  api('/api/reservations?day=' + PICK.day).then(function(d){
+    TABLES = d.tables; PICK.busy = {};
+    d.reservations.forEach(function(r){
+      if (r.id === PICK.id || r.day !== PICK.day || (r.status !== 'confirmed' && r.status !== 'arrived')) return;
+      if (Math.abs(hm2min(r.time) - hm2min(PICK.time)) < 120) r.tables.forEach(function(t){ PICK.busy[t] = r.time; });
+    });
+    if (!PICK.area || !TABLES.some(function(t){ return t.area === PICK.area; })) PICK.area = (TABLES[0] || {}).area || 'terasa';
+    drawPick();
+  });
+}
+function drawPick(){
+  var areas = ['terasa', 'restoran'].filter(function(a){ return TABLES.some(function(t){ return t.area === a; }); });
+  document.getElementById('pick-tabs').innerHTML = areas.map(function(a){
+    return '<button class="' + (a === PICK.area ? 'on' : '') + '" onclick="PICK.area=\'' + a + '\';drawPick()">' + AREA_NAMES[a] + '</button>';
+  }).join('');
+  document.getElementById('pick-floor').innerHTML = TABLES.filter(function(t){ return t.area === PICK.area; }).map(function(t){
+    var ch = PICK.chosen.indexOf(t.id) >= 0, busy = PICK.busy[t.id];
+    return '<div class="ft pick' + (ch ? ' chosen' : busy ? ' busy' : '') + '" style="left:' + t.x + '%;top:' + t.y + '%" onclick="pickTable(' + t.id + ')">' +
+      esc(t.name) + '<small>' + (busy ? '📅 ' + busy : t.seats + ' os.') + '</small></div>';
+  }).join('');
+  pickInfo();
+}
+function pickTable(id){
+  var i = PICK.chosen.indexOf(id);
+  if (i >= 0) PICK.chosen.splice(i, 1);
+  else { if (PICK.busy[id] && !confirm('Stol je zauzet u ' + PICK.busy[id] + '. Ipak ga dodijeliti?')) return; PICK.chosen.push(id); }
+  drawPick();
+}
+function pickInfo(){
+  var guests = PICK.phone ? parseInt(document.getElementById('p-guests').value, 10) || 0 : PICK.guests;
+  var seats = PICK.chosen.reduce(function(a, id){ var t = TABLES.filter(function(x){ return x.id === id; })[0]; return a + (t ? t.seats : 0); }, 0);
+  document.getElementById('pick-info').innerHTML = PICK.chosen.length ?
+    'Odabrano: <b>' + PICK.chosen.map(tname).join(' + ') + '</b> · ' + seats + ' mjesta za ' + guests + ' os.' + (seats < guests ? ' <b style="color:#b71c1c">— premalo mjesta</b>' : '') :
+    'Dodirnite stol (ili više njih) za ' + guests + ' os.';
+}
+function pickOk(){
+  var btn = document.getElementById('pick-ok'), done = function(){ closePick(); poll(); if (VIEW === 'res') loadRes(RDAY); };
+  if (PICK.phone){
+    var name = document.getElementById('p-name').value.trim();
+    if (!name) { alert('Upišite ime gosta.'); return; }
+    btn.disabled = true;
+    api('/api/reservations', {method: 'POST', body: JSON.stringify({day: PICK.day, time: PICK.time, guests: parseInt(document.getElementById('p-guests').value, 10),
+      name: name, phone: document.getElementById('p-phone').value, note: document.getElementById('p-note').value, tables: PICK.chosen})})
+      .then(done).catch(function(){ alert('Spremanje nije uspjelo.'); }).then(function(){ btn.disabled = false; });
+  } else {
+    btn.disabled = true;
+    api('/api/reservations/' + PICK.id + '/confirm', {method: 'POST', body: JSON.stringify({tables: PICK.chosen})})
+      .then(done).catch(function(){ alert('Potvrda nije uspjela.'); }).then(function(){ btn.disabled = false; });
+  }
 }
 
 function lines(o){
@@ -304,14 +515,20 @@ function lines(o){
 
 function render(data){
   var grid = document.getElementById('grid'), freshTable = false, freshTk = false;
-  var tk = data.takeaway || [], calls = data.calls || [], freshCall = false;
+  var tk = data.takeaway || [], calls = data.calls || [], freshCall = false, freshRes = false;
+  TODAY = data.today || TODAY;
+  var newRes = (data.reservations || []).filter(function(r){ return r.status === 'new'; });
+  document.getElementById('v-res').textContent = '📅 Rezervacije' + (newRes.length ? ' (' + newRes.length + ')' : '');
   SOLD = data.soldout || SOLD; drawSoldBtn();
   TABLES = data.tables || TABLES; LAST = data; drawPlan();
-  if (!data.orders.length && !tk.length && !calls.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
-  var cards = calls.map(function(o){
+  if (!data.orders.length && !tk.length && !calls.length && !newRes.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
+  var cards = newRes.map(function(r){
+    var key = 'r' + r.id, isNew = !seen[key] && !first; if (isNew) freshRes = true; seen[key] = true;
+    return resCard(r, isNew);
+  }).concat(calls.map(function(o){
     var key = 'c' + o.id + (o.pay || ''), isNew = !seen[key] && !first; if (isNew) freshCall = true; seen[key] = true;
     return callCard(o, isNew, data.now);
-  }).concat(tk.map(function(o){
+  })).concat(tk.map(function(o){
     var key = 'k' + o.id, isNew = !seen[key] && !first; if (isNew) freshTk = true; seen[key] = true;
     return takeawayCard(o, isNew, data.now);
   })).concat(data.orders.map(function(o){
@@ -319,7 +536,7 @@ function render(data){
     return tableCard(o, isNew, data.now);
   }));
   grid.innerHTML = cards.join('');
-  if (freshCall) ring(); else if (freshTk) beep(true); else if (freshTable) beep(false);
+  if (freshCall) ring(); else if (freshRes) chime(); else if (freshTk) beep(true); else if (freshTable) beep(false);
   first = false;
 }
 
