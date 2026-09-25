@@ -166,6 +166,14 @@ body{background:linear-gradient(160deg,#07101f 0%,#0d1f3c 40%,#0a1628 70%,#060e1
 .menu-item.hidden{display:none!important;}
 .menu-item:hover{background:rgba(201,168,76,.03);border-radius:6px;padding-left:.4rem;padding-right:.4rem;}
 .mi-info{flex:1;min-width:0;}
+.mi-img{flex-shrink:0;width:68px;height:68px;padding:0;border:1px solid var(--gold-dim);border-radius:10px;overflow:hidden;background:rgba(201,168,76,.08);cursor:zoom-in;}
+.mi-img img{width:100%;height:100%;object-fit:cover;display:block;}
+@media (max-width:599px){ .menu-item.has-img{flex-wrap:wrap;} .menu-item.has-img .mi-img{flex-basis:100%;height:170px;} }
+#photo-overlay{position:fixed;inset:0;z-index:400;background:rgba(5,10,20,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;gap:.8rem;}
+#photo-overlay[hidden]{display:none;}
+#photo-overlay img{max-width:100%;max-height:80vh;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.6);}
+#photo-overlay p{font-family:"Cormorant Garamond",serif;font-size:1.25rem;color:var(--cream);text-align:center;max-width:36rem;}
+#photo-overlay button{position:absolute;top:.8rem;right:.8rem;width:44px;height:44px;border-radius:50%;border:1px solid var(--gold);background:rgba(10,22,40,.8);color:var(--gold);font-size:1.3rem;cursor:pointer;}
 .mi-name{font-family:"Cormorant Garamond",serif;font-size:1.18rem;color:var(--cream);line-height:1.4;}
 .mi-desc{font-size:.88rem;color:rgba(192,187,179,.65);font-style:italic;font-family:"Cormorant Garamond",serif;margin-top:.16rem;line-height:1.5;}
 .mi-vol{color:rgba(168,163,155,.5);font-size:.84rem;}
@@ -632,6 +640,8 @@ body.takeaway .o-show{display:none;}
   </nav>
 </div>
 
+<div id="photo-overlay" hidden onclick="closePhoto()"><button aria-label="×">✕</button><img alt=""/><p></p></div>
+
 <!-- LANG PICKER -->
 <div id="lang-overlay">
   <button class="picker-close" onclick="hideLangPicker()" aria-label="Zatvori">✕</button>
@@ -788,7 +798,7 @@ s('qa-menu','menu');s('qa-al','allergens');s('qa-call','call');
 // If that is empty or cannot be loaded, the copy in menu.csv is used. The last sheet
 // that loaded is kept in the browser, so the menu also works offline.
 // Sheet columns: Kartica, Kategorija, Naziv HR, Opis HR, Količina, Cijena,
-// Sidrena cijena, Alergeni, Prikaži, Vino uz jelo, then "Naziv XX" / "Opis XX" per language.
+// Sidrena cijena, Alergeni, Prikaži, Vino uz jelo, then "Naziv XX" / "Opis XX" per language, and Slika (photo).
 const MENU_SHEET_URL='';
 const SEC_TR={"Doručak 🥐": {"HR": "Doručak 🥐", "EN": "Breakfast 🥐", "DE": "Frühstück 🥐", "IT": "Colazione 🥐", "FR": "Petit-déjeuner 🥐", "ES": "Desayuno 🥐", "PT": "Pequeno-almoço 🥐", "NL": "Ontbijt 🥐", "PL": "Śniadanie 🥐", "RU": "Завтрак 🥐", "HU": "Reggeli 🥐", "CS": "Snídaně 🥐", "SK": "Raňajky 🥐", "SL": "Zajtrk 🥐", "UA": "Сніданок 🥐", "RO": "Mic dejun 🥐"}, "Pića za doručak 🥤": {"HR": "Pića za doručak 🥤", "EN": "Breakfast drinks 🥤", "DE": "Frühstücksgetränke 🥤", "IT": "Bevande per la colazione 🥤", "FR": "Boissons du matin 🥤", "ES": "Bebidas de desayuno 🥤", "PT": "Bebidas do pequeno-almoço 🥤", "NL": "Ontbijtdranken 🥤", "PL": "Napoje śniadaniowe 🥤", "RU": "Напитки к завтраку 🥤", "HU": "Reggeli italok 🥤", "CS": "Nápoje ke snídani 🥤", "SK": "Nápoje k raňajkám 🥤", "SL": "Pijače za zajtrk 🥤", "UA": "Напої до сніданку 🥤", "RO": "Băuturi la micul dejun 🥤"}, "Smoothie i frappe 🥤": {"HR": "Smoothie i frappe 🥤", "EN": "Smoothies & frappés 🥤", "DE": "Smoothies & Frappés 🥤", "IT": "Smoothie e frappè 🥤", "FR": "Smoothies et frappés 🥤", "ES": "Smoothies y frappés 🥤", "PT": "Smoothies e frappés 🥤", "NL": "Smoothies & frappés 🥤", "PL": "Smoothie i frappe 🥤", "RU": "Смузи и фраппе 🥤", "HU": "Smoothie és frappé 🥤", "CS": "Smoothie a frappé 🥤", "SK": "Smoothie a frappé 🥤", "SL": "Smoothiji in frappeji 🥤", "UA": "Смузі та фрапе 🥤", "RO": "Smoothie și frappé 🥤"}, "Aperitivi 🥂": {"HR": "Aperitivi 🥂", "EN": "Aperitifs 🥂", "DE": "Aperitifs 🥂", "IT": "Aperitivi 🥂", "FR": "Apéritifs 🥂", "ES": "Aperitivos 🥂", "PT": "Aperitivos 🥂", "NL": "Aperitieven 🥂", "PL": "Aperitify 🥂", "RU": "Аперитивы 🥂", "HU": "Aperitifek 🥂", "CS": "Aperitivy 🥂", "SK": "Aperitívy 🥂", "SL": "Aperitivi 🥂", "UA": "Аперитиви 🥂", "RO": "Aperitive 🥂"}, "Gin & Tonic 🍋": {"HR": "Gin & Tonic 🍋", "EN": "Gin & Tonic 🍋", "DE": "Gin & Tonic 🍋", "IT": "Gin tonic 🍋", "FR": "Gin tonic 🍋", "ES": "Gin tonic 🍋", "PT": "Gin tónico 🍋", "NL": "Gin-tonic 🍋", "PL": "Gin z tonikiem 🍋", "RU": "Джин-тоник 🍋", "HU": "Gin-tonik 🍋", "CS": "Gin s tonikem 🍋", "SK": "Gin s tonikom 🍋", "SL": "Gin tonik 🍋", "UA": "Джин-тонік 🍋", "RO": "Gin tonic 🍋"}, "Kokteli 🍹": {"HR": "Kokteli 🍹", "EN": "Cocktails 🍹", "DE": "Cocktails 🍹", "IT": "Cocktail 🍹", "FR": "Cocktails 🍹", "ES": "Cócteles 🍹", "PT": "Cocktails 🍹", "NL": "Cocktails 🍹", "PL": "Koktajle 🍹", "RU": "Коктейли 🍹", "HU": "Koktélok 🍹", "CS": "Koktejly 🍹", "SK": "Koktaily 🍹", "SL": "Koktajli 🍹", "UA": "Коктейлі 🍹", "RO": "Cocktailuri 🍹"}, "Žestoka pića 🥃": {"HR": "Žestoka pića 🥃", "EN": "Spirits 🥃", "DE": "Spirituosen 🥃", "IT": "Distillati 🥃", "FR": "Spiritueux 🥃", "ES": "Destilados 🥃", "PT": "Bebidas espirituosas 🥃", "NL": "Gedistilleerd 🥃", "PL": "Alkohole mocne 🥃", "RU": "Крепкие напитки 🥃", "HU": "Röviditalok 🥃", "CS": "Destiláty 🥃", "SK": "Destiláty 🥃", "SL": "Žgane pijače 🥃", "UA": "Міцні напої 🥃", "RO": "Spirtoase 🥃"}, "Domaći likeri 🌿": {"HR": "Domaći likeri 🌿", "EN": "Local liqueurs 🌿", "DE": "Hausgemachte Liköre 🌿", "IT": "Liquori locali 🌿", "FR": "Liqueurs locales 🌿", "ES": "Licores locales 🌿", "PT": "Licores locais 🌿", "NL": "Lokale likeuren 🌿", "PL": "Lokalne likiery 🌿", "RU": "Местные ликёры 🌿", "HU": "Helyi likőrök 🌿", "CS": "Místní likéry 🌿", "SK": "Miestne likéry 🌿", "SL": "Domači likerji 🌿", "UA": "Місцеві лікери 🌿", "RO": "Lichioruri locale 🌿"}, "Pivo 🍺": {"HR": "Pivo 🍺", "EN": "Beer 🍺", "DE": "Bier 🍺", "IT": "Birra 🍺", "FR": "Bière 🍺", "ES": "Cerveza 🍺", "PT": "Cerveja 🍺", "NL": "Bier 🍺", "PL": "Piwo 🍺", "RU": "Пиво 🍺", "HU": "Sör 🍺", "CS": "Pivo 🍺", "SK": "Pivo 🍺", "SL": "Pivo 🍺", "UA": "Пиво 🍺", "RO": "Bere 🍺"}, "Bezalkoholna pića 🥤": {"HR": "Bezalkoholna pića 🥤", "EN": "Soft drinks 🥤", "DE": "Alkoholfreie Getränke 🥤", "IT": "Analcolici 🥤", "FR": "Sans alcool 🥤", "ES": "Sin alcohol 🥤", "PT": "Sem álcool 🥤", "NL": "Frisdranken 🥤", "PL": "Napoje bezalkoholowe 🥤", "RU": "Безалкогольные напитки 🥤", "HU": "Üdítők 🥤", "CS": "Nealkoholické nápoje 🥤", "SK": "Nealkoholické nápoje 🥤", "SL": "Brezalkoholne pijače 🥤", "UA": "Безалкогольні напої 🥤", "RO": "Băuturi răcoritoare 🥤"}, "Kava i topli napitci ☕": {"HR": "Kava i topli napitci ☕", "EN": "Coffee & hot drinks ☕", "DE": "Kaffee & Heißgetränke ☕", "IT": "Caffè e bevande calde ☕", "FR": "Café & boissons chaudes ☕", "ES": "Café y bebidas calientes ☕", "PT": "Café e bebidas quentes ☕", "NL": "Koffie & warme dranken ☕", "PL": "Kawa i gorące napoje ☕", "RU": "Кофе и горячие напитки ☕", "HU": "Kávé és forró italok ☕", "CS": "Káva a teplé nápoje ☕", "SK": "Káva a teplé nápoje ☕", "SL": "Kava in topli napitki ☕", "UA": "Кава та гарячі напої ☕", "RO": "Cafea și băuturi calde ☕"}, "Bijela vina 🥂": {"HR": "Bijela vina 🥂", "EN": "White wines 🥂", "DE": "Weißweine 🥂", "IT": "Vini bianchi 🥂", "FR": "Vins blancs 🥂", "ES": "Vinos blancos 🥂", "PT": "Vinhos brancos 🥂", "NL": "Witte wijnen 🥂", "PL": "Wina białe 🥂", "RU": "Белые вина 🥂", "HU": "Fehérborok 🥂", "CS": "Bílá vína 🥂", "SK": "Biele vína 🥂", "SL": "Bela vina 🥂", "UA": "Білі вина 🥂", "RO": "Vinuri albe 🥂"}, "Crna vina 🍷": {"HR": "Crna vina 🍷", "EN": "Red wines 🍷", "DE": "Rotweine 🍷", "IT": "Vini rossi 🍷", "FR": "Vins rouges 🍷", "ES": "Vinos tintos 🍷", "PT": "Vinhos tintos 🍷", "NL": "Rode wijnen 🍷", "PL": "Wina czerwone 🍷", "RU": "Красные вина 🍷", "HU": "Vörösborok 🍷", "CS": "Červená vína 🍷", "SK": "Červené vína 🍷", "SL": "Rdeča vina 🍷", "UA": "Червоні вина 🍷", "RO": "Vinuri roșii 🍷"}, "Rosé i prosecco 🌸": {"HR": "Rosé i prosecco 🌸", "EN": "Rosé & prosecco 🌸", "DE": "Rosé & Prosecco 🌸", "IT": "Rosé e prosecco 🌸", "FR": "Rosé & prosecco 🌸", "ES": "Rosado y prosecco 🌸", "PT": "Rosé e prosecco 🌸", "NL": "Rosé & prosecco 🌸", "PL": "Różowe i prosecco 🌸", "RU": "Розовое и просекко 🌸", "HU": "Rozé és prosecco 🌸", "CS": "Rosé a prosecco 🌸", "SK": "Rosé a prosecco 🌸", "SL": "Rose in prosecco 🌸", "UA": "Рожеве та просеко 🌸", "RO": "Rosé și prosecco 🌸"}, "Šampanjac 🥇": {"HR": "Šampanjac 🥇", "EN": "Champagne 🥇", "DE": "Champagner 🥇", "IT": "Champagne 🥇", "FR": "Champagne 🥇", "ES": "Champán 🥇", "PT": "Champanhe 🥇", "NL": "Champagne 🥇", "PL": "Szampan 🥇", "RU": "Шампанское 🥇", "HU": "Pezsgő 🥇", "CS": "Šampaňské 🥇", "SK": "Šampanské 🥇", "SL": "Šampanjec 🥇", "UA": "Шампанське 🥇", "RO": "Șampanie 🥇"}};
 const TAB_KEYS={jelovnik:'jelovnik',specijaliteti:'spec',dorucak:'dorucak',pica:'pica',vino:'vino',deserti:'desert'};
@@ -833,6 +843,7 @@ function rowsToItems(rows){
       sp:get(r,'Sidrena cijena')?fmtPrice(get(r,'Sidrena cijena')):p,
       al:(get(r,'Alergeni').match(/\d+/g)||[]).filter(x=>+x>=1&&+x<=14),
       wine:get(r,'Vino uz jelo'),
+      img:get(r,'Slika'),
       takeaway:!/^(ne|no|0|false)$/i.test(get(r,'Za van'))});
   }
   if(!items.length) throw new Error('empty menu');
@@ -877,8 +888,21 @@ function itemHtml(i,filterable){
   const wine=i.wine?`<div class="wine-pair">🍷 ${t('wine_pair')}: ${esc(i.wine)}</div>`:'';
   const al=i.al.length?`<div class="item-al">${i.al.map(x=>`<span class="al-tag" title="${esc(alName(+x))}">${AL_ICONS[x]||'⚠'} ${x}</span>`).join('')}</div>`:'';
   const attrs=filterable?` data-cat="${esc(i.cat)}" data-al="${i.al.join(',')}"`:'';
-  return `<div class="menu-item"${attrs}><div class="mi-info"><div class="mi-name">${esc(nm(i))}${vol}${prem}</div>${d?`<div class="mi-desc">${esc(d)}</div>`:''}${wine}${al}</div>${priceHtml(i)}${canAdd(i)?`<button class="add-btn" onclick="addToOrder(${i.id},this)" aria-label="+">+</button>`:''}</div>`;
+  const img=i.img?`<button class="mi-img" onclick="openPhoto(${i.id})" aria-label="${esc(nm(i))}"><img src="${esc(photoUrl(i.img,innerWidth>=600))}" alt="" loading="lazy" width="68" height="68"/></button>`:'';
+  return `<div class="menu-item${img?' has-img':''}"${attrs}>${img}<div class="mi-info"><div class="mi-name">${esc(nm(i))}${vol}${prem}</div>${d?`<div class="mi-desc">${esc(d)}</div>`:''}${wine}${al}</div>${priceHtml(i)}${canAdd(i)?`<button class="add-btn" onclick="addToOrder(${i.id},this)" aria-label="+">+</button>`:''}</div>`;
 }
+
+// Photos: a file name from the "Slika" column is served from img/ (small copy in img/thumb/),
+// a full https:// address is used as is.
+function photoUrl(v,thumb){return /^https?:\/\//i.test(v)?v:(thumb?'img/thumb/':'img/')+encodeURIComponent(v);}
+function openPhoto(id){
+  const i=ITEMS[id];if(!i||!i.img)return;
+  const o=document.getElementById('photo-overlay');
+  o.querySelector('img').src=photoUrl(i.img,false);o.querySelector('img').alt=nm(i);
+  o.querySelector('p').textContent=nm(i);o.hidden=false;
+}
+function closePhoto(){const o=document.getElementById('photo-overlay');o.hidden=true;o.querySelector('img').removeAttribute('src');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePhoto();});
 
 function renderTab(tab,el,filterable){
   let html='';
