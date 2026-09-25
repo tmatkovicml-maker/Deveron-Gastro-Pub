@@ -5,14 +5,18 @@
 //   POST /api/takeaway                 takeaway order (name, phone, pickup time, optional loyalty card)
 //   GET  /api/takeaway/:id?token=…     {state: new|accepted|rejected|done, ready_at}
 //   GET  /api/loyalty?card=DEV-XXXX-XXXX  discount and spend of a loyalty card
-//   GET  /api/status                   {takeaway, ai} – which features are switched on
+//   GET  /api/status                   {takeaway, ai, soldout} – switches and today's sold-out items
 //   POST /api/chat                     {messages, lang} → {reply}  AI assistant (Claude)
+//   POST /api/call                     {table, kind: waiter|bill, pay?: cash|card}  call the waiter / ask for the bill
 // Waiter tablet (X-Waiter-Pin = WAITER_PIN):
 //   GET  /api/orders                   open table and takeaway orders
 //   POST /api/orders/:id/done          table order entered in the till
 //   POST /api/takeaway/:id/accept      {minutes}  accept with ready time
 //   POST /api/takeaway/:id/reject
 //   POST /api/takeaway/:id/done        collected and paid (adds to the loyalty card)
+//   POST /api/calls/:id/done           guest's call handled
+//   GET  /api/menu-names               dishes and drinks for the sold-out list
+//   POST /api/soldout                  {name, on}  mark an item sold out for today
 // Admins (X-Admin-Pin = ADMIN_PIN or OWNER_PIN, two separate logins with the same rights):
 //   GET  /api/admin/orders?from=&to=   all table and takeaway orders in a period
 //   GET  /api/admin/cards              loyalty cards
@@ -28,7 +32,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import WAITER_PAGE from './waiter.html';
 import ADMIN_PAGE from './admin.html';
-import { askClaude, validChat } from './ai.js';
+import { askClaude, validChat, menuNames } from './ai.js';
 
 const SITE_ORIGINS = ['https://deveronpub.com', 'https://www.deveronpub.com'];
 const TABLES = 40;
@@ -43,6 +47,10 @@ const dailyLimit = env => parseInt(env.AI_DAILY_LIMIT, 10) || 300;   // AI quest
 function zagrebNow() {
   const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Zagreb' }));
   return { month: d.getMonth() + 1, day: d.getDate(), min: d.getHours() * 60 + d.getMinutes() };
+}
+// "2026-09-25" in Croatian time; sold-out marks only count for that day
+function zagrebDay() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Zagreb' });
 }
 function takeawayOpen() {
   const z = zagrebNow();
@@ -107,6 +115,10 @@ export class Orders extends DurableObject {
     // Settings changed from the admin page; takeaway starts paused until switched on
     this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
     this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', '')");
+    this.sql.exec('CREATE TABLE IF NOT EXISTS soldout (name TEXT PRIMARY KEY, day TEXT NOT NULL)');
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS calls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, tbl INTEGER NOT NULL,
+      kind TEXT NOT NULL, pay TEXT, done INTEGER NOT NULL DEFAULT 0)`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS cards (
       code TEXT PRIMARY KEY, spent REAL NOT NULL DEFAULT 0, orders INTEGER NOT NULL DEFAULT 0,
       created INTEGER NOT NULL, last_used INTEGER)`);
@@ -119,6 +131,48 @@ export class Orders extends DurableObject {
     // Name and phone are only needed for pickup
     this.sql.exec("UPDATE takeaway SET name = '', phone = '' WHERE created < ? AND phone != ''", now - KEEP_CONTACT);
     this.sql.exec('DELETE FROM cards WHERE COALESCE(last_used, created) < ?', now - KEEP_CARDS);
+    this.sql.exec('DELETE FROM calls WHERE created < ?', now - DAY);
+  }
+
+  // ---- sold out today (resets by itself the next day) ----
+  soldout() {
+    const today = zagrebDay();
+    this.sql.exec('DELETE FROM soldout WHERE day != ?', today);
+    return this.sql.exec('SELECT name FROM soldout ORDER BY name').toArray().map(r => r.name);
+  }
+
+  setSoldout(name, on) {
+    if (on) this.sql.exec('INSERT OR REPLACE INTO soldout (name, day) VALUES (?, ?)', name, zagrebDay());
+    else this.sql.exec('DELETE FROM soldout WHERE name = ?', name);
+    return { soldout: this.soldout() };
+  }
+
+  // Order lines are "Naziv HR" or "Naziv HR (0,5 L)"
+  soldoutIn(lines) {
+    const sold = this.soldout();
+    return lines.map(l => l.name).filter(n => sold.some(s => n === s || n.startsWith(s + ' (')));
+  }
+
+  // ---- guest calls the waiter or asks for the bill ----
+  addCall(c, ip) {
+    const now = Date.now();
+    this.cleanup(now);
+    const open = this.sql.exec('SELECT id FROM calls WHERE tbl = ? AND kind = ? AND done = 0 AND created >= ?',
+      c.table, c.kind, now - 2 * HOUR).toArray()[0];
+    if (open) {
+      if (c.pay) this.sql.exec('UPDATE calls SET pay = ? WHERE id = ?', c.pay, open.id);
+      return { id: open.id };
+    }
+    if (this.count('call:' + ip, now - 10 * 60 * 1000) >= 20) return { error: 'too_many', status: 429 };
+    this.sql.exec('INSERT INTO limits (k, at) VALUES (?, ?)', 'call:' + ip, now);
+    const row = this.sql.exec('INSERT INTO calls (created, tbl, kind, pay) VALUES (?, ?, ?, ?) RETURNING id',
+      now, c.table, c.kind, c.pay).one();
+    return { id: row.id };
+  }
+
+  callDone(id) {
+    this.sql.exec('UPDATE calls SET done = 1 WHERE id = ?', id);
+    return { ok: true };
   }
 
   count(k, since) {
@@ -130,6 +184,8 @@ export class Orders extends DurableObject {
     this.cleanup(now);
     // Limits per 10 minutes: 5 orders per table, 60 per internet connection
     // (guests on the restaurant WiFi share one address)
+    const sold = this.soldoutIn(order.lines);
+    if (sold.length) return { error: 'soldout', items: sold, status: 409 };
     const since = now - 10 * 60 * 1000;
     if (this.count('t:' + order.table, since) >= 5 || this.count('ip:' + ip, since) >= 60) return { error: 'too_many', status: 429 };
     this.sql.exec('INSERT INTO limits (k, at) VALUES (?, ?), (?, ?)', 't:' + order.table, now, 'ip:' + ip, now);
@@ -153,7 +209,7 @@ export class Orders extends DurableObject {
   }
 
   status() {
-    return { takeaway: this.takeawayEnabled(), ai: this.aiEnabled() };
+    return { takeaway: this.takeawayEnabled(), ai: this.aiEnabled(), soldout: this.soldout() };
   }
 
   // For the admin page: switches plus today's AI usage
@@ -195,6 +251,8 @@ export class Orders extends DurableObject {
 
   addTakeaway(o, ip) {
     if (!this.takeawayEnabled()) return { error: 'paused', status: 403 };
+    const sold = this.soldoutIn(o.lines);
+    if (sold.length) return { error: 'soldout', items: sold, status: 409 };
     const now = Date.now();
     this.cleanup(now);
     // Max 3 takeaway orders per phone per hour and 20 per connection per 10 minutes
@@ -235,7 +293,8 @@ export class Orders extends DurableObject {
     const takeaway = this.sql.exec(`SELECT id, created, name, phone, pickup, lang, note, lines, total, discount, card, status, ready_at
       FROM takeaway WHERE status IN ('new', 'accepted') AND created >= ? ORDER BY created`, now - DAY).toArray()
       .map(o => ({ ...o, lines: JSON.parse(o.lines), to_pay: toPay(o.total, o.discount) }));
-    return { orders, takeaway };
+    const calls = this.sql.exec('SELECT * FROM calls WHERE done = 0 AND created >= ? ORDER BY created', now - 2 * HOUR).toArray();
+    return { orders, takeaway, calls, soldout: this.soldout() };
   }
 
   done(id) {
@@ -318,6 +377,13 @@ function validOrder(body) {
   return { table, lines, note: str(body.note, 300), lang: str(body.lang, 4), total: str(body.total, 20) };
 }
 
+function validCall(body) {
+  const table = parseInt(body?.table, 10);
+  if (!(table >= 1 && table <= TABLES) || !['waiter', 'bill'].includes(body.kind)) return null;
+  const pay = body.kind === 'bill' && ['cash', 'card'].includes(body.pay) ? body.pay : null;
+  return { table, kind: body.kind, pay };
+}
+
 function validTakeaway(body) {
   const lines = validLines(body?.lines);
   const name = str(body?.name, 60);
@@ -398,12 +464,21 @@ export default {
       const allowed = await store.allowChat(ip);
       if (allowed.error) return json(allowed, allowed.status, c);
       try {
-        const res = await askClaude(env, chat);
+        const res = await askClaude(env, chat, await store.soldout());
         return json(res.reply ? { reply: res.reply } : { error: 'no_answer' }, res.reply ? 200 : 502, c);
       } catch (e) {
         console.error('AI error', e?.status, e?.message);
         return json({ error: 'ai_error' }, 502, c);
       }
+    }
+
+    if (path === '/api/call' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400, c); }
+      const call = validCall(body);
+      if (!call) return json({ error: 'invalid' }, 400, c);
+      const res = await store.addCall(call, ip);
+      return json(res, res.status || 200, c);
     }
 
     if (path === '/api/loyalty' && request.method === 'GET') {
@@ -423,6 +498,29 @@ export default {
       const err = pinError(request, env);
       if (err) return json({ error: err }, 401);
       return json(await store.done(+m[1]));
+    }
+
+    m = path.match(/^\/api\/calls\/(\d+)\/done$/);
+    if (m && request.method === 'POST') {
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
+      return json(await store.callDone(+m[1]));
+    }
+
+    if (path === '/api/menu-names' && request.method === 'GET') {
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
+      return json({ items: await menuNames(env), soldout: await store.soldout() });
+    }
+
+    if (path === '/api/soldout' && request.method === 'POST') {
+      const err = pinError(request, env);
+      if (err) return json({ error: err }, 401);
+      let body = {};
+      try { body = await request.json(); } catch {}
+      const name = str(body.name, 160);
+      if (!name) return json({ error: 'invalid' }, 400);
+      return json(await store.setSoldout(name, body.on === true));
     }
 
     m = path.match(/^\/api\/takeaway\/(\d+)\/(accept|reject|done)$/);

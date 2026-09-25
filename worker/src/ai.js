@@ -67,14 +67,29 @@ function menuText(csv) {
   return out.join('\n');
 }
 
-let MENU_CACHE = { text: '', at: 0 };
-async function loadMenu(env) {
-  if (MENU_CACHE.text && Date.now() - MENU_CACHE.at < MENU_TTL) return MENU_CACHE.text;
+let MENU_CACHE = { text: '', csv: '', at: 0 };
+async function loadCsv(env) {
+  if (MENU_CACHE.csv && Date.now() - MENU_CACHE.at < MENU_TTL) return MENU_CACHE;
   try {
     const r = await fetch(env.MENU_CSV_URL || MENU_URL, { cf: { cacheTtl: 300 } });
-    if (r.ok) MENU_CACHE = { text: menuText(await r.text()), at: Date.now() };
+    if (r.ok) { const csv = await r.text(); MENU_CACHE = { text: menuText(csv), csv, at: Date.now() }; }
   } catch {}
-  return MENU_CACHE.text;
+  return MENU_CACHE;
+}
+async function loadMenu(env) {
+  return (await loadCsv(env)).text;
+}
+
+// Dishes and drinks for the tablet's sold-out list: [{tab, cat, name}]
+export async function menuNames(env) {
+  const { csv } = await loadCsv(env);
+  if (!csv) return [];
+  const rows = parseCSV(csv);
+  const head = rows[0].map(h => h.trim());
+  const k = n => head.indexOf(n);
+  return rows.slice(1)
+    .filter(r => (r[k('Naziv HR')] || '').trim() && !/^(ne|no|0|false)$/i.test((r[k('Prikaži')] || '').trim()))
+    .map(r => ({ tab: (r[k('Kartica')] || '').trim(), cat: (r[k('Kategorija')] || '').trim(), name: r[k('Naziv HR')].trim() }));
 }
 
 function systemPrompt(menu) {
@@ -114,11 +129,13 @@ export function validChat(body) {
   return { messages: clean, lang };
 }
 
-export async function askClaude(env, chat) {
+export async function askClaude(env, chat, soldout = []) {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const menu = await loadMenu(env);
+  // Today's sold-out items go with the question, so the cached system prompt stays the same
+  const today = soldout.length ? `\n[Sold out today, do not recommend: ${soldout.join('; ')}]` : '';
   const messages = chat.messages.map((m, i) => i === chat.messages.length - 1
-    ? { role: 'user', content: `[Website language: ${chat.lang}]\n${m.content}` } : m);
+    ? { role: 'user', content: `[Website language: ${chat.lang}]${today}\n${m.content}` } : m);
 
   const model = env.AI_MODEL || DEFAULT_MODEL;
   const params = {
