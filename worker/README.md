@@ -26,6 +26,7 @@ Otvoriti adresu Workera u pregledniku tableta, upisati `WAITER_PIN` i dodirnuti 
 `https://deveron-gastro-pub.t-matkovicml.workers.dev/admin` → `ADMIN_PIN` ili `OWNER_PIN`.
 - **Narudžbe**: sve narudžbe za stolom i za van po razdoblju (danas, jučer, 7/30 dana, mjesec, od–do), zbrojevi, najprodavanije, izvoz u CSV.
 - **Loyalty kartice**: anonimni kodovi, potrošnja, popust, brisanje.
+- **Google recenzije**: zalijepite link s Google profila (business.google.com → „Zatraži recenzije”). Gumb „Ocijenite nas na Googleu” tada je na početnoj i u Info, a gost ga dobije i kad zatraži račun sa stola ili preuzme narudžbu za van. „🖨 QR kartica za stol” ispisuje QR kod za recenzije.
 - **Online rezervacije na webu**: prekidač Uključi / Isključi (zadano isključeno). Dok je isključeno, gumb „Rezerviraj" vodi na resOS kao dosad; uključeno otvara naš obrazac (12:00–21:30 svakih 30 min, do 12 osoba, do 60 dana unaprijed, najmanje sat vremena prije).
 - **Rezervacije**: popis po razdoblju sa zbrojevima (potvrđeno, čeka potvrdu, nisu došli, preko weba).
 - **Tlocrt**: stolovi terase i restorana. Stol se povuče na novo mjesto, a dodirom mu se mijenja naziv, broj mjesta i prostor; tu se i dodaje ili briše. Broj u QR kodu (`?stol=12`) se ne mijenja, pa se QR kartice tiskaju samo za nove stolove (`deveronpub.com/qr.html` uvijek pokazuje trenutne nazive).

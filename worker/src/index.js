@@ -132,7 +132,7 @@ export class Orders extends DurableObject {
       status TEXT NOT NULL DEFAULT 'new', ready_at INTEGER, closed INTEGER)`);
     // Settings changed from the admin page; takeaway starts paused until switched on
     this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
-    this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', ''), ('res', '0')");
+    this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', ''), ('res', '0'), ('review', '')");
     this.sql.exec('CREATE TABLE IF NOT EXISTS soldout (name TEXT PRIMARY KEY, day TEXT NOT NULL)');
     this.sql.exec(`CREATE TABLE IF NOT EXISTS reservations (
       id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, token TEXT NOT NULL, source TEXT NOT NULL,
@@ -331,7 +331,8 @@ export class Orders extends DurableObject {
   }
 
   status(table) {
-    const res = { takeaway: this.takeawayEnabled(), ai: this.aiEnabled(), soldout: this.soldout(), reservations: this.resEnabled() };
+    const res = { takeaway: this.takeawayEnabled(), ai: this.aiEnabled(), soldout: this.soldout(), reservations: this.resEnabled(),
+      review: this.setting('review') || '' };
     if (table) res.table = this.tableNames()[table] || null;
     return res;
   }
@@ -347,6 +348,7 @@ export class Orders extends DurableObject {
     if (typeof s.takeaway === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'takeaway'", s.takeaway ? '1' : '0');
     if (typeof s.ai === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'ai'", s.ai ? '1' : '0');
     if (typeof s.res === 'boolean') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'res'", s.res ? '1' : '0');
+    if (typeof s.review === 'string') this.sql.exec("UPDATE settings SET v = ? WHERE k = 'review'", s.review);
     return this.adminStatus();
   }
 
@@ -774,6 +776,14 @@ export default {
       if (path === '/api/admin/settings' && request.method === 'POST') {
         let body = {};
         try { body = await request.json(); } catch {}
+        // Google review link: only a Google address, or empty to hide the buttons
+        if ('review' in body) {
+          const v = str(body.review, 300);
+          let ok = v === '';
+          try { ok = ok || (new URL(v).protocol === 'https:' && /(^|\.)(google\.[a-z.]+|g\.page|goo\.gl|g\.co)$/.test(new URL(v).hostname)); } catch {}
+          if (!ok) return json({ error: 'review_url' }, 400);
+          body.review = v;
+        }
         return json(await store.setSettings(body));
       }
       if (path === '/api/admin/settings' && request.method === 'GET') {
