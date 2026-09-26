@@ -8,6 +8,7 @@ Prima narudžbe sa stolova (`deveronpub.com/?stol=N`) i narudžbe za van, prikaz
 3. Worker `deveron-gastro-pub` → **Settings** → **Runtime variables and secrets** → **Add** (type **Secret**):
    - `WAITER_PIN` – PIN za konobare (tablet)
    - `ADMIN_PIN` i `OWNER_PIN` – dva odvojena administratorska PIN-a (administrator i vlasnik) za stranicu `/admin`
+   - `KITCHEN_PIN` – neobavezno, PIN za kuhinjski ekran `/kuhinja` (bez njega vrijedi `WAITER_PIN`)
 4. Neobavezno (type **Text**): `LOYALTY_TIERS` – pragovi popusta, npr. `100:10,300:15`
    (od 100 € potrošnje 10 %, od 300 € 15 %). Bez nje vrijedi `100:10,300:15`.
 5. Adresa Workera (`https://deveron-gastro-pub.t-matkovicml.workers.dev`) upisana je u `index.html` kao `ORDER_API`.
@@ -22,10 +23,19 @@ Otvoriti adresu Workera u pregledniku tableta, upisati `WAITER_PIN` i dodirnuti 
 - „🚫 Rasprodano" (gore desno): jelo ili piće označeno kao rasprodano gostima piše „Trenutno nije dostupno",
   ne može se naručiti i AI ga ne preporučuje. Oznaka vrijedi do kraja dana.
 
+## Kuhinja
+Drugi tablet u kuhinji: `https://deveron-gastro-pub.t-matkovicml.workers.dev/kuhinja` → PIN (`KITCHEN_PIN`, a ako nije postavljen, `WAITER_PIN`) → „Uključi zvuk i počni".
+- Stupci **Novo · U pripremi · Gotovo**. Stižu samo jela (Jelovnik, Specijaliteti, Deserti, hrana za doručak); pića ostaju na šanku.
+- Narudžbe sa stola stižu odmah, narudžbe za van kad ih konobar prihvati (vidi se i do kad moraju biti gotove).
+- „🔥 U pripremi" → „✅ Gotovo": konobaru na tabletu zasvira zelena kartica „🍽 HRANA GOTOVA · S-12" → „✓ Odneseno" (za van „✓ Spakirano", a gost na mobitelu vidi „Spremno za preuzimanje"). Na tlocrtu je takav stol zelen.
+- Vrijeme čekanja postaje narančasto nakon 15 i crveno nakon 25 minuta.
+- Narudžbe koje konobar upiše samo u blagajnu ovdje se ne vide.
+
 ## Administracija
 `https://deveron-gastro-pub.t-matkovicml.workers.dev/admin` → `ADMIN_PIN` ili `OWNER_PIN`.
 - **Narudžbe**: sve narudžbe za stolom i za van po razdoblju (danas, jučer, 7/30 dana, mjesec, od–do), zbrojevi, najprodavanije, izvoz u CSV.
 - **Loyalty kartice**: anonimni kodovi, potrošnja, popust, brisanje.
+- **Google recenzije**: zalijepite link s Google profila (business.google.com → „Zatraži recenzije”). Gumb „Ocijenite nas na Googleu” tada je na početnoj i u Info, a gost ga dobije i kad zatraži račun sa stola ili preuzme narudžbu za van. „🖨 QR kartica za stol” ispisuje QR kod za recenzije.
 - **Online rezervacije na webu**: prekidač Uključi / Isključi (zadano isključeno). Dok je isključeno, gumb „Rezerviraj" vodi na resOS kao dosad; uključeno otvara naš obrazac (12:00–21:30 svakih 30 min, do 12 osoba, do 60 dana unaprijed, najmanje sat vremena prije).
 - **Rezervacije**: popis po razdoblju sa zbrojevima (potvrđeno, čeka potvrdu, nisu došli, preko weba).
 - **Tlocrt**: stolovi terase i restorana. Stol se povuče na novo mjesto, a dodirom mu se mijenja naziv, broj mjesta i prostor; tu se i dodaje ili briše. Broj u QR kodu (`?stol=12`) se ne mijenja, pa se QR kartice tiskaju samo za nove stolove (`deveronpub.com/qr.html` uvijek pokazuje trenutne nazive).

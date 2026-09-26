@@ -80,6 +80,15 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
       <div><b>Online rezervacije na webu</b><div class="muted" id="res-state">…</div></div>
       <button id="res-toggle" onclick="toggleRes()">…</button>
     </div>
+    <div class="box">
+      <div class="switch"><div><b>Google recenzije ⭐</b><div class="muted" id="rv-state">…</div></div></div>
+      <div class="tools" style="margin-top:.6rem">
+        <input id="rv-url" placeholder="https://g.page/r/…/review" style="flex:1;min-width:260px"/>
+        <button onclick="saveReview()">Spremi</button>
+        <button id="rv-print" onclick="printReview()" hidden>🖨 QR kartica za stol</button>
+      </div>
+      <p class="hint" style="margin-top:.5rem">Link dobijete na business.google.com → „Zatraži recenzije” (Get more reviews) → Kopiraj. Gumb „Ocijenite nas na Googleu” pojavi se na webu i gostu nakon narudžbe za van i kad zatraži račun.</p>
+    </div>
     <div class="box switch">
       <div><b>AI asistent na webu</b><div class="muted" id="ai-state">…</div></div>
       <button id="ai-toggle" onclick="toggleAI()">…</button>
@@ -339,6 +348,10 @@ function drawSwitch(){
   document.getElementById('ai-state').innerHTML = !SET.ai_key ? '<span style="color:#b26a00;font-weight:bold">● Nije spojeno</span> – u Cloudflareu nedostaje ANTHROPIC_API_KEY.'
     : ai ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gosti mogu postavljati pitanja.' + usage
     : '<span style="color:#b71c1c;font-weight:bold">● Pauzirano</span> – kartica AI asistenta je skrivena.' + usage;
+  document.getElementById('rv-state').innerHTML = SET.review ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gosti vide gumb „Ocijenite nas na Googleu”.'
+    : '<span style="color:#b26a00;font-weight:bold">● Link nije upisan</span> – gumb za recenzije je skriven.';
+  if (document.activeElement !== document.getElementById('rv-url')) document.getElementById('rv-url').value = SET.review || '';
+  document.getElementById('rv-print').hidden = !SET.review;
   var rs = SET.reservations;
   document.getElementById('res-state').innerHTML = rs ? '<span style="color:var(--green);font-weight:bold">● Uključeno</span> – gumb „Rezerviraj” otvara naš obrazac, rezervacije stižu na tablet.'
     : '<span style="color:#b71c1c;font-weight:bold">● Isključeno</span> – gumb „Rezerviraj” vodi na resOS kao dosad.';
@@ -355,6 +368,25 @@ function setSetting(obj, btn){
     .catch(function(){ btn.disabled = false; });
 }
 function toggleTakeaway(){ setSetting({takeaway: !SET.takeaway}, document.getElementById('tk-toggle')); }
+function saveReview(){
+  var v = document.getElementById('rv-url').value.trim();
+  fetch('/api/admin/settings', {method: 'POST', headers: {'X-Admin-Pin': PIN, 'Content-Type': 'application/json'}, body: JSON.stringify({review: v})})
+    .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+    .then(function(d){ SET = d; drawSwitch(); alert(v ? 'Link je spremljen.' : 'Link je uklonjen.'); })
+    .catch(function(){ alert('Link nije ispravan. Kopirajte ga iz Google profila (počinje s https://g.page/ ili https://search.google.com/).'); });
+}
+function printReview(){
+  var w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Google recenzije – QR</title>' +
+    '<script src="https://deveronpub.com/qrcode.js"><\/script><style>@page{size:A4;margin:10mm}body{font-family:Georgia,serif;margin:0}' +
+    '.g{display:grid;grid-template-columns:1fr 1fr;gap:8mm}.c{border:1px dashed #999;border-radius:4mm;padding:8mm;text-align:center;background:#0a1628;color:#f5f0e8;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '.c h2{color:#c9a84c;font-weight:400;letter-spacing:.06em;margin:0 0 2mm}.q{background:#fff;padding:3mm;border-radius:2mm;width:45mm;margin:4mm auto}.q svg{width:100%;display:block}' +
+    '.s{font-size:4mm;color:#e8c97a}.t{font-size:3.2mm;color:#c0bbb3;font-style:italic;margin-top:2mm}</style></head><body><div class="g" id="g"></div><script>' +
+    'var u=' + JSON.stringify(SET.review) + ';var q=qrcode(0,"M");q.addData(u);q.make();var svg=q.createSvgTag({cellSize:1,margin:0,scalable:true});' +
+    'var c=\'<div class="c"><h2>DEVERON</h2><div class="s">★★★★★</div><div class="q">\'+svg+\'</div><div>Ocijenite nas na Googleu</div><div class="t">Rate us on Google · Bewerten Sie uns · Lasciaci una recensione</div></div>\';' +
+    'document.getElementById("g").innerHTML=c+c+c+c;setTimeout(function(){print()},500);<\/script></body></html>');
+  w.document.close();
+}
 function toggleRes(){ setSetting({res: !SET.reservations}, document.getElementById('res-toggle')); }
 function toggleAI(){ setSetting({ai: !SET.ai_switch}, document.getElementById('ai-toggle')); }
 
