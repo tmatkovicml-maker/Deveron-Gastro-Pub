@@ -62,12 +62,30 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
 .edit input,.edit select{padding:.5rem;border:1px solid #ccc;border-radius:8px;font-size:1rem;}
 .save{background:var(--green)!important;color:#fff!important;border:none!important;font-weight:bold;}
 .dirty{color:#b26a00;font-weight:bold;}
+.hc{font-size:.85rem;}
+.hc td,.hc th{border:1px solid #e3e3e3;}
+.rd{display:inline-block;margin:0 .3rem .15rem 0;white-space:nowrap;}
+.rd.bad{color:#b71c1c;font-weight:bold;}
+.pe{display:grid;grid-template-columns:1fr 6rem 6rem 5rem auto;gap:.4rem;align-items:center;margin-bottom:.4rem;}
+.pe.task{grid-template-columns:1fr 10rem auto;}
+.pe input,.pe select{padding:.45rem;border:1px solid #ccc;border-radius:8px;font-size:.95rem;min-width:0;}
+.pe.head{color:#666;font-size:.8rem;margin-bottom:.2rem;}
+.print-only{display:none;}
+@media print{
+  header,.noprint,#login{display:none!important;}
+  body{background:#fff;}
+  main{padding:0;max-width:none;}
+  .box{box-shadow:none;padding:.4rem 0;margin-bottom:.6rem;}
+  .print-only{display:block;}
+  section[hidden]{display:none!important;}
+  table{font-size:9pt;} tr{break-inside:avoid;}
+}
 </style>
 </head>
 <body>
 <header>
   <h1>DEVERON · ADMINISTRACIJA</h1>
-  <nav><button id="nav-o" class="on" onclick="tab('o')">Narudžbe</button><button id="nav-c" onclick="tab('c')">Loyalty kartice</button><button id="nav-r" onclick="tab('r')">Rezervacije</button><button id="nav-t" onclick="tab('t')">Tlocrt</button><button onclick="logout()">Odjava</button></nav>
+  <nav><button id="nav-o" class="on" onclick="tab('o')">Narudžbe</button><button id="nav-c" onclick="tab('c')">Loyalty kartice</button><button id="nav-r" onclick="tab('r')">Rezervacije</button><button id="nav-t" onclick="tab('t')">Tlocrt</button><button id="nav-h" onclick="tab('h')">HACCP</button><button onclick="logout()">Odjava</button></nav>
 </header>
 
 <main>
@@ -146,6 +164,37 @@ button.del{background:#fdecea;color:#b71c1c;border:none;padding:.35rem .6rem;bor
     <p class="hint">Broj u QR kodu (ID) se ne mijenja kad stol preimenujete ili pomaknete, pa QR kartice ne treba ponovno tiskati. QR kartice s trenutnim nazivima: <a href="https://deveronpub.com/qr.html" target="_blank" rel="noopener">deveronpub.com/qr.html</a>.</p>
   </section>
 
+  <section id="tab-h" hidden>
+    <div class="box tools noprint">
+      <button data-hp="today" class="on" onclick="haccpPeriod('today',this)">Danas</button>
+      <button data-hp="7" onclick="haccpPeriod('7',this)">7 dana</button>
+      <button data-hp="month" onclick="haccpPeriod('month',this)">Ovaj mjesec</button>
+      <button data-hp="last" onclick="haccpPeriod('last',this)">Prošli mjesec</button>
+      <input type="date" id="h-from" onchange="haccpCustom()"/> – <input type="date" id="h-to" onchange="haccpCustom()"/>
+      <button class="right" onclick="window.print()">🖨 Ispis / PDF za inspekciju</button>
+      <button onclick="csvHaccp()">⬇ CSV</button>
+    </div>
+    <div class="print-only"><h2>Deveron Gastro Pub · HACCP evidencija</h2><p id="h-print-sub"></p></div>
+    <div class="box stats" id="h-stats"></div>
+    <div class="box wrap"><b>🌡 Temperature hladnjaka i zamrzivača</b><table class="hc" style="margin-top:.5rem"><thead id="h-thead"></thead><tbody id="h-temps"></tbody></table></div>
+    <div class="box wrap"><b>🧽 Čišćenje i kontrole</b><table style="margin-top:.5rem">
+      <thead><tr><th>Vrijeme</th><th>Zadatak</th><th>Učinio/la</th><th>Napomena</th></tr></thead><tbody id="h-tasks"></tbody></table></div>
+    <div class="box wrap"><b>📦 Prijem robe</b><table style="margin-top:.5rem">
+      <thead><tr><th>Vrijeme</th><th>Dobavljač</th><th>Proizvod</th><th class="num">°C</th><th>LOT</th><th>Rok</th><th>Ambalaža</th><th>Odluka</th><th>Zaprimio/la</th><th>Napomena</th></tr></thead><tbody id="h-goods"></tbody></table></div>
+    <div class="box noprint">
+      <div class="switch"><b>Uređaji i zadaci</b><span id="h-dirty" class="dirty"></span></div>
+      <p class="hint" style="margin:.4rem 0 .8rem">Hladnjaci i zamrzivači s dozvoljenim granicama i brojem mjerenja dnevno te zadaci čišćenja i kontrole. Stari zapisi zadržavaju naziv i kad uređaj ili zadatak obrišete.</p>
+      <div class="pe head"><span>Uređaj</span><span>Min °C</span><span>Max °C</span><span>Mjerenja/dan</span><span></span></div>
+      <div id="h-dev"></div>
+      <div class="tools" style="margin:.4rem 0 1rem"><button onclick="addPoint('temp')">＋ Dodaj uređaj</button></div>
+      <div class="pe task head"><span>Zadatak</span><span>Učestalost</span><span></span></div>
+      <div id="h-task"></div>
+      <div class="tools" style="margin-top:.4rem"><button onclick="addPoint('task')">＋ Dodaj zadatak</button>
+        <button class="right" onclick="loadHaccp()">Poništi</button><button class="save" onclick="savePoints()">✓ Spremi</button></div>
+    </div>
+    <p class="hint noprint">Osoblje upisuje na tabletu u kuhinji: <a href="/haccp" target="_blank">/haccp</a> (PIN: <code>HACCP_PIN</code>, a ako nije postavljen, PIN kuhinje). Zapisi se ne mogu brisati ni mijenjati i čuvaju se 2 godine. Za inspekciju odaberite razdoblje i „Ispis / PDF”.</p>
+  </section>
+
   <section id="tab-c" hidden>
     <div class="box stats" id="c-stats"></div>
     <div class="box wrap"><table>
@@ -199,12 +248,121 @@ function login(){
 function logout(){ sessionStorage.removeItem('deveron-admin'); location.reload(); }
 
 function tab(t){
-  ['o', 'c', 'r', 't'].forEach(function(x){
+  ['o', 'c', 'r', 't', 'h'].forEach(function(x){
     document.getElementById('tab-' + x).hidden = t !== x; document.getElementById('nav-' + x).className = t === x ? 'on' : '';
   });
   if (t === 'c') loadCards();
   if (t === 't') loadTables();
   if (t === 'r') resPeriod(0, document.querySelector('[data-rp="0"]'));
+  if (t === 'h') haccpPeriod('today', document.querySelector('[data-hp=today]'));
+}
+
+// ---- HACCP ----
+var HD = null, HP = [], H_DIRTY = false, H_FREQ = {daily: 'Dnevno', weekly: 'Tjedno', monthly: 'Mjesečno'};
+function hdeg(v){ return String(v).replace('.', ','); }
+function hday(d){ return new Date(d + 'T12:00:00').toLocaleDateString('hr-HR'); }
+function haccpPeriod(p, btn){
+  var now = new Date(), from, to = isoDay(now);
+  if (p === 'today') from = to;
+  else if (p === '7') from = isoDay(Date.now() - 6 * 86400000);
+  else if (p === 'month') from = isoDay(new Date(now.getFullYear(), now.getMonth(), 1));
+  else { from = isoDay(new Date(now.getFullYear(), now.getMonth() - 1, 1)); to = isoDay(new Date(now.getFullYear(), now.getMonth(), 0)); }
+  document.querySelectorAll('[data-hp]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  document.getElementById('h-from').value = from; document.getElementById('h-to').value = to;
+  loadHaccp();
+}
+function haccpCustom(){
+  if (document.getElementById('h-from').value && document.getElementById('h-to').value) {
+    document.querySelectorAll('[data-hp]').forEach(function(b){ b.classList.remove('on'); }); loadHaccp();
+  }
+}
+function loadHaccp(){
+  var from = document.getElementById('h-from').value, to = document.getElementById('h-to').value;
+  api('/api/admin/haccp?from=' + from + '&to=' + to).then(function(d){
+    HD = d; HP = d.points.map(function(p){ return Object.assign({}, p); }); hDirty(false); drawHaccp(); drawPoints();
+  });
+}
+function drawHaccp(){
+  var d = HD, log = d.log;
+  var temps = log.filter(function(r){ return r.kind === 'temp'; }), tasks = log.filter(function(r){ return r.kind === 'task'; }),
+    goods = log.filter(function(r){ return r.kind === 'goods'; });
+  var days = [], x = d.from;
+  while (x <= d.to && days.length < 400) { days.push(x); x = isoDay(new Date(x + 'T12:00:00').getTime() + 86400000); }
+  // Devices: current ones plus names found only in old records
+  var devs = d.points.filter(function(p){ return p.kind === 'temp'; }).map(function(p){ return {id: p.id, name: p.name, times: p.times, lo: p.lo, hi: p.hi}; });
+  temps.forEach(function(r){ if (!devs.some(function(v){ return v.id === r.point; })) devs.push({id: r.point, name: r.name, times: 0}); });
+  var missing = 0;
+  document.getElementById('h-print-sub').textContent = 'Razdoblje: ' + hday(d.from) + ' – ' + hday(d.to) + ' · ispisano ' + new Date().toLocaleString('hr-HR');
+  document.getElementById('h-thead').innerHTML = '<tr><th>Dan</th>' + devs.map(function(v){
+    return '<th>' + esc(v.name) + (v.lo != null ? '<div class="muted">' + hdeg(v.lo) + ' do ' + hdeg(v.hi) + ' °C</div>' : '') + '</th>';
+  }).join('') + '</tr>';
+  document.getElementById('h-temps').innerHTML = days.map(function(day){
+    return '<tr><td style="white-space:nowrap">' + hday(day) + '</td>' + devs.map(function(v){
+      var rs = temps.filter(function(r){ return r.day === day && r.point === v.id; });
+      if (rs.length < v.times && day <= isoDay(Date.now())) missing += v.times - rs.length;
+      return '<td>' + rs.map(function(r){
+        return '<span class="rd' + (r.ok ? '' : ' bad') + '">' + hdeg(r.value) + ' °C <span class="muted">' + new Date(r.created).toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}) + ' ' + esc(r.who) + '</span></span>' +
+          (r.ok ? '' : '<div class="st-no">↳ ' + esc(r.action) + '</div>');
+      }).join('') + (rs.length < v.times && day <= isoDay(Date.now()) ? '<span class="st-open">nedostaje ' + (v.times - rs.length) + '</span>' : '') + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+  document.getElementById('h-tasks').innerHTML = tasks.length ? tasks.map(function(r){
+    return '<tr><td>' + dt(r.created) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.who) + '</td><td class="muted">' + esc(r.action || '') + '</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="muted" style="text-align:center;padding:1rem">Nema zapisa</td></tr>';
+  document.getElementById('h-goods').innerHTML = goods.length ? goods.map(function(r){
+    var g = r.data || {};
+    return '<tr><td>' + dt(r.created) + '</td><td>' + esc(g.supplier) + '</td><td>' + esc(r.name) + '</td><td class="num">' + (r.value != null ? hdeg(r.value) : '–') + '</td>' +
+      '<td>' + esc(g.lot || '–') + '</td><td>' + (g.expiry ? hday(g.expiry) : '–') + '</td><td>' + (g.pack_ok ? '<span class="st-ok">ispravna</span>' : '<span class="st-no">neispravna</span>') + '</td>' +
+      '<td>' + (g.accepted ? '<span class="st-ok">prihvaćeno</span>' : '<span class="st-no">odbijeno</span>') + '</td><td>' + esc(r.who) + '</td><td class="muted">' + esc(r.action || '') + '</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="muted" style="text-align:center;padding:1rem">Nema zapisa</td></tr>';
+  var bad = temps.filter(function(r){ return !r.ok; }).length;
+  document.getElementById('h-stats').innerHTML =
+    '<div class="stat"><b>' + temps.length + '</b><span>mjerenja temperature</span></div>' +
+    '<div class="stat"><b' + (bad ? ' class="st-no"' : '') + '>' + bad + '</b><span>izvan granica (s korektivnom mjerom)</span></div>' +
+    '<div class="stat"><b' + (missing ? ' class="st-open"' : '') + '>' + missing + '</b><span>propuštenih mjerenja</span></div>' +
+    '<div class="stat"><b>' + tasks.length + '</b><span>obavljenih zadataka</span></div>' +
+    '<div class="stat"><b>' + goods.length + ' · ' + goods.filter(function(r){ return !r.ok; }).length + ' odb.</b><span>prijema robe</span></div>';
+}
+function hDirty(v){ H_DIRTY = v; document.getElementById('h-dirty').textContent = v ? '● Nespremljene promjene' : ''; }
+function drawPoints(){
+  document.getElementById('h-dev').innerHTML = HP.map(function(p, i){
+    if (p.kind !== 'temp') return '';
+    return '<div class="pe"><input maxlength="80" value="' + esc(p.name) + '" oninput="editP(' + i + ',\'name\',this.value)"/>' +
+      '<input inputmode="decimal" value="' + hdeg(p.lo) + '" oninput="editP(' + i + ',\'lo\',this.value)"/>' +
+      '<input inputmode="decimal" value="' + hdeg(p.hi) + '" oninput="editP(' + i + ',\'hi\',this.value)"/>' +
+      '<input type="number" min="1" max="6" value="' + p.times + '" oninput="editP(' + i + ',\'times\',this.value)"/>' +
+      '<button class="del" onclick="delP(' + i + ')">🗑</button></div>';
+  }).join('');
+  document.getElementById('h-task').innerHTML = HP.map(function(p, i){
+    if (p.kind !== 'task') return '';
+    return '<div class="pe task"><input maxlength="80" value="' + esc(p.name) + '" oninput="editP(' + i + ',\'name\',this.value)"/>' +
+      '<select onchange="editP(' + i + ',\'freq\',this.value)">' + Object.keys(H_FREQ).map(function(f){
+        return '<option value="' + f + '"' + (p.freq === f ? ' selected' : '') + '>' + H_FREQ[f] + '</option>'; }).join('') + '</select>' +
+      '<button class="del" onclick="delP(' + i + ')">🗑</button></div>';
+  }).join('');
+}
+function editP(i, k, v){ HP[i][k] = k === 'lo' || k === 'hi' ? String(v).replace(',', '.').replace('−', '-') : v; hDirty(true); }
+function delP(i){ if (!confirm('Obrisati „' + HP[i].name + '”? Stari zapisi ostaju.')) return; HP.splice(i, 1); hDirty(true); drawPoints(); }
+function addPoint(kind){
+  HP.push(kind === 'temp' ? {kind: 'temp', name: 'Novi hladnjak', lo: 0, hi: 5, times: 2} : {kind: 'task', name: 'Novi zadatak', freq: 'daily'});
+  hDirty(true); drawPoints();
+}
+function savePoints(){
+  fetch('/api/admin/haccp/points', {method: 'POST', headers: {'X-Admin-Pin': PIN, 'Content-Type': 'application/json'},
+    body: JSON.stringify({points: HP.map(function(p){ return {id: p.id, kind: p.kind, name: String(p.name).trim(), lo: p.lo, hi: p.hi, times: p.times, freq: p.freq}; })})})
+    .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+    .then(function(){ hDirty(false); loadHaccp(); alert('Spremljeno.'); })
+    .catch(function(){ alert('Nije spremljeno. Provjerite da svaki uređaj ima naziv, min ≤ max i 1–6 mjerenja dnevno.'); });
+}
+function csvHaccp(){
+  if (!HD) return;
+  download('deveron-haccp-' + HD.from + '_' + HD.to + '.csv',
+    ['Vrijeme', 'Vrsta', 'Uređaj / zadatak / proizvod', 'Temperatura (°C)', 'Ispravno', 'Dobavljač', 'LOT', 'Rok trajanja', 'Korektivna mjera / napomena', 'Upisao/la'],
+    HD.log.map(function(r){
+      var g = r.data || {};
+      return [dt(r.created), {temp: 'Temperatura', task: 'Zadatak', goods: 'Prijem robe'}[r.kind], r.name, r.value != null ? hdeg(r.value) : '',
+        r.kind === 'task' ? '' : r.ok ? 'da' : 'ne', g.supplier || '', g.lot || '', g.expiry || '', r.action || '', r.who];
+    }));
 }
 
 // ---- reservations ----
@@ -317,7 +475,7 @@ function saveTables(){
     drag = null; drawTables(); drawEdit();
   });
 })();
-window.addEventListener('beforeunload', function(e){ if (DIRTY) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', function(e){ if (DIRTY || H_DIRTY) { e.preventDefault(); e.returnValue = ''; } });
 
 function period(p, btn){
   var now = Date.now(), today = midnight(now), DAY = 86400000;

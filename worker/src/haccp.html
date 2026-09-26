@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex"/>
+<title>Deveron · HACCP</title>
+<style>
+:root{--navy:#0a1628;--gold:#c9a84c;--green:#1b7f3b;--red:#c62828;--orange:#ef6c00;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,Helvetica,sans-serif;background:#10151d;color:#eee;min-height:100vh;}
+header{background:var(--navy);color:var(--gold);padding:.7rem 1.2rem;display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;position:sticky;top:0;z-index:5;}
+header h1{font-size:1.2rem;letter-spacing:.12em;}
+#who-btn{background:none;border:1px solid rgba(201,168,76,.5);color:var(--gold);padding:.45rem .9rem;border-radius:8px;font-size:1rem;cursor:pointer;}
+#status{font-size:.9rem;color:#cfd6e0;}
+#status.bad{color:#ff8a80;font-weight:bold;}
+nav{display:flex;gap:.5rem;padding:.8rem .8rem 0;flex-wrap:wrap;}
+nav button{flex:1;min-width:9rem;background:#171e29;color:#cfd6e0;border:2px solid #2a3444;padding:.9rem .6rem;border-radius:12px;font-size:1.1rem;font-weight:bold;cursor:pointer;}
+nav button.on{background:var(--gold);color:var(--navy);border-color:var(--gold);}
+nav button .cnt{display:block;font-size:.85rem;font-weight:normal;margin-top:.2rem;}
+nav button .cnt.miss{color:#ff8a80;font-weight:bold;}
+nav button.on .cnt.miss{color:var(--red);}
+main{padding:.8rem;max-width:1100px;margin:0 auto;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.8rem;}
+.card{background:#fff;color:#111;border-radius:12px;padding:.9rem 1rem;border-top:8px solid #9aa4b2;}
+.card.ok{border-top-color:var(--green);}
+.card.miss{border-top-color:var(--orange);}
+.card.bad{border-top-color:var(--red);}
+.card h3{font-size:1.25rem;display:flex;justify-content:space-between;gap:.5rem;align-items:baseline;}
+.card h3 small{font-size:.9rem;color:#555;font-weight:normal;white-space:nowrap;}
+.lim{color:#555;font-size:.95rem;margin:.2rem 0 .5rem;}
+.reads{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;min-height:1.6rem;}
+.chip{background:#e8f5e9;color:var(--green);border-radius:6px;padding:.25rem .5rem;font-size:.95rem;font-weight:bold;}
+.chip.bad{background:#fdecea;color:var(--red);}
+.chip span{font-weight:normal;color:#555;font-size:.85rem;}
+.row{display:flex;gap:.5rem;align-items:stretch;}
+.sign{width:3.2rem;font-size:1.6rem;font-weight:bold;border:2px solid #ccc;border-radius:10px;background:#f4f5f7;cursor:pointer;}
+.row input{flex:1;min-width:0;font-size:1.6rem;padding:.5rem .7rem;border:2px solid #ccc;border-radius:10px;text-align:center;}
+.unit{align-self:center;font-size:1.3rem;color:#555;}
+.b{padding:.8rem 1.1rem;border:none;border-radius:10px;font-size:1.15rem;font-weight:bold;cursor:pointer;background:var(--green);color:#fff;}
+.b:disabled{opacity:.5;}
+.b.grey{background:#eee;color:#333;}
+.fix{margin-top:.7rem;background:#fdecea;border-radius:10px;padding:.7rem;}
+.fix b{color:var(--red);}
+.fix textarea{width:100%;margin-top:.4rem;font-size:1.05rem;padding:.5rem;border:2px solid #e57373;border-radius:8px;min-height:3.4rem;font-family:inherit;}
+.quick{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.4rem;}
+.quick button{background:#fff;border:1px solid #e57373;color:#7f1d1d;border-radius:16px;padding:.35rem .7rem;font-size:.9rem;cursor:pointer;}
+h2.sec{color:#9aa4b2;letter-spacing:.12em;font-size:1rem;margin:1rem .2rem .5rem;}
+.task{background:#fff;color:#111;border-radius:10px;padding:.8rem 1rem;display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-bottom:.5rem;border-left:8px solid var(--orange);}
+.task.ok{border-left-color:var(--green);}
+.task .nm{font-size:1.15rem;font-weight:bold;}
+.task .dn{color:var(--green);font-size:.95rem;margin-top:.2rem;}
+.task .due{color:var(--orange);font-size:.95rem;margin-top:.2rem;}
+.form{background:#fff;color:#111;border-radius:12px;padding:1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.8rem;align-items:end;}
+.form label{display:flex;flex-direction:column;gap:.25rem;font-size:.95rem;color:#444;}
+.form input,.form textarea{font-size:1.15rem;padding:.55rem .6rem;border:2px solid #ccc;border-radius:8px;font-family:inherit;}
+.form .full{grid-column:1/-1;}
+.checks{display:flex;gap:.6rem;flex-wrap:wrap;}
+.checks label{flex-direction:row;align-items:center;gap:.5rem;background:#f4f5f7;padding:.7rem .9rem;border-radius:10px;font-size:1.05rem;color:#111;cursor:pointer;}
+.checks input{width:1.4rem;height:1.4rem;}
+.list{margin-top:.8rem;background:#fff;color:#111;border-radius:12px;padding:.4rem 1rem;}
+.list div.it{padding:.6rem 0;border-bottom:1px solid #eee;}
+.list div.it:last-child{border-bottom:none;}
+.muted{color:#777;}
+.okc{color:var(--green);font-weight:bold;} .noc{color:var(--red);font-weight:bold;}
+.empty{color:#667;text-align:center;padding:1.5rem .5rem;}
+.toast{position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);background:var(--green);color:#fff;padding:.8rem 1.4rem;border-radius:10px;font-size:1.1rem;font-weight:bold;z-index:20;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.toast.err{background:var(--red);}
+.overlay{position:fixed;inset:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem;z-index:10;text-align:center;}
+.overlay h2{color:var(--gold);letter-spacing:.1em;}
+.overlay input{font-size:2rem;width:12rem;text-align:center;padding:.4rem;border-radius:8px;border:none;}
+#pin{letter-spacing:.3em;}
+.overlay button{font-size:1.2rem;padding:.8rem 2rem;border-radius:10px;border:none;background:var(--gold);color:var(--navy);font-weight:bold;cursor:pointer;}
+.overlay p{color:#cfd6e0;max-width:28rem;}
+.err{color:#ff8a80;min-height:1.2em;}
+[hidden]{display:none!important;}
+</style>
+</head>
+<body>
+<header>
+  <h1>DEVERON · HACCP</h1>
+  <div id="status">…</div>
+  <button id="who-btn" onclick="askWho()">👤 –</button>
+</header>
+<nav>
+  <button id="nav-t" class="on" onclick="tab('t')">🌡 Temperature<span class="cnt" id="cnt-t"></span></button>
+  <button id="nav-c" onclick="tab('c')">🧽 Čišćenje i kontrole<span class="cnt" id="cnt-c"></span></button>
+  <button id="nav-g" onclick="tab('g')">📦 Prijem robe<span class="cnt" id="cnt-g"></span></button>
+</nav>
+<main>
+  <section id="tab-t"><div class="grid" id="temps"></div></section>
+  <section id="tab-c" hidden><div id="tasks"></div></section>
+  <section id="tab-g" hidden>
+    <div class="form">
+      <label>Dobavljač<input id="g-sup" list="sups" maxlength="80" autocomplete="off"/></label>
+      <datalist id="sups"></datalist>
+      <label>Proizvod<input id="g-prod" maxlength="120" placeholder="npr. Brancin svježi, 10 kg"/></label>
+      <label>Temperatura pri prijemu (°C, za ohlađeno/smrznuto)
+        <div class="row"><button type="button" class="sign" id="g-sign" onclick="flip(this)">+</button><input id="g-temp" inputmode="decimal" autocomplete="off"/></div></label>
+      <label>LOT / šarža<input id="g-lot" maxlength="60" autocomplete="off"/></label>
+      <label>Rok trajanja<input id="g-exp" type="date"/></label>
+      <div class="checks full">
+        <label><input type="checkbox" id="g-pack" checked/> Ambalaža i deklaracija ispravne</label>
+        <label><input type="radio" name="g-acc" id="g-yes" checked/> ✓ Prihvaćeno</label>
+        <label><input type="radio" name="g-acc" id="g-no"/> ✗ Odbijeno / vraćeno</label>
+      </div>
+      <label class="full">Napomena<textarea id="g-note" maxlength="300" rows="2"></textarea></label>
+      <button class="b full" onclick="saveGoods(this)">✓ Spremi prijem robe</button>
+    </div>
+    <h2 class="sec">DANAS ZAPRIMLJENO</h2>
+    <div class="list" id="goods"></div>
+  </section>
+</main>
+
+<div class="overlay" id="login">
+  <h2>HACCP</h2>
+  <p>Upišite PIN (isti kao za kuhinju, ako poseban HACCP PIN nije postavljen).</p>
+  <input id="pin" type="password" inputmode="numeric" autocomplete="off"/>
+  <div class="err" id="pin-err"></div>
+  <button onclick="login()">Prijava</button>
+</div>
+<div class="overlay" id="who" hidden>
+  <h2>TKO UPISUJE?</h2>
+  <p>Ime ili inicijali. Upisuju se uz svako mjerenje i zadatak, kako traži HACCP.</p>
+  <input id="who-in" maxlength="40" autocomplete="off"/>
+  <div class="err" id="who-err"></div>
+  <button onclick="setWho()">Nastavi</button>
+</div>
+
+<script>
+var PIN = localStorage.getItem('deveron-hpin') || '', WHO = localStorage.getItem('deveron-haccp-who') || '';
+var D = null, TAB = 't', FIX = {}, SIGN = {};
+var FREQ = {daily: ['DNEVNO', 'danas'], weekly: ['TJEDNO', 'ovaj tjedan'], monthly: ['MJESEČNO', 'ovaj mjesec']};
+var QUICK = ['Hrana premještena u ispravan hladnjak', 'Termostat podešen, ponovno mjerenje za 30 min', 'Vrata bila otvorena, ponovno mjerenje za 30 min', 'Pozvan serviser', 'Neispravna hrana bačena'];
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function hm(ms){ return new Date(ms).toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}); }
+function dm(ms){ return new Date(ms).toLocaleDateString('hr-HR', {day:'2-digit', month:'2-digit'}); }
+function deg(v){ return String(v).replace('.', ',').replace('-', '−') + ' °C'; }
+
+function api(path, opts){
+  opts = opts || {};
+  opts.headers = {'X-Haccp-Pin': PIN, 'Content-Type': 'application/json'};
+  return fetch(path, opts).then(function(r){
+    if (r.status === 401) return r.json().then(function(d){ throw d.error === 'no_pin' ? 'no_pin' : 'pin'; });
+    return r.json().then(function(d){ if (!r.ok) throw d.error || 'net'; return d; });
+  });
+}
+function post(path, body){ return api(path, {method: 'POST', body: JSON.stringify(Object.assign({who: WHO}, body))}); }
+
+function toast(msg, bad){
+  document.querySelectorAll('.toast').forEach(function(x){ x.remove(); });
+  var t = document.createElement('div'); t.className = 'toast' + (bad ? ' err' : ''); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 2500);
+}
+
+function login(){
+  PIN = document.getElementById('pin').value.trim();
+  api('/api/haccp').then(function(d){
+    localStorage.setItem('deveron-hpin', PIN);
+    document.getElementById('login').hidden = true;
+    ready(d);
+  }).catch(function(e){ document.getElementById('pin-err').textContent =
+    e === 'pin' ? 'Pogrešan PIN' : e === 'no_pin' ? 'PIN nije postavljen u Cloudflareu (HACCP_PIN, KITCHEN_PIN ili WAITER_PIN)' : 'Nema veze s poslužiteljem'; });
+}
+function ready(d){
+  render(d);
+  document.getElementById('status').textContent = new Date().toLocaleDateString('hr-HR') + ' · povezano';
+  if (!WHO) askWho(); else drawWho();
+  setInterval(poll, 60000);
+}
+function askWho(){
+  document.getElementById('who-in').value = WHO;
+  document.getElementById('who').hidden = false;
+  document.getElementById('who-in').focus();
+}
+function setWho(){
+  var v = document.getElementById('who-in').value.trim();
+  if (!v){ document.getElementById('who-err').textContent = 'Upišite ime ili inicijale'; return; }
+  WHO = v; localStorage.setItem('deveron-haccp-who', v);
+  document.getElementById('who').hidden = true; drawWho();
+}
+function drawWho(){ document.getElementById('who-btn').textContent = '👤 ' + WHO + ' · promijeni'; }
+
+function tab(t){
+  TAB = t;
+  ['t', 'c', 'g'].forEach(function(x){
+    document.getElementById('tab-' + x).hidden = x !== t; document.getElementById('nav-' + x).className = x === t ? 'on' : '';
+  });
+}
+
+function flip(b){ b.textContent = b.textContent === '+' ? '−' : '+'; }
+function readTemp(inputId, signId){
+  var raw = document.getElementById(inputId).value.trim().replace(',', '.'), neg = /^[−-]/.test(raw);
+  raw = raw.replace(/^[−-]\s*/, '');
+  if (raw === '') return null;
+  if (!/^\d+(\.\d+)?$/.test(raw)) return NaN;
+  // A minus typed on the keyboard or the − button both make it negative
+  return neg || document.getElementById(signId).textContent === '−' ? -parseFloat(raw) : parseFloat(raw);
+}
+
+function logOf(kind, point){ return D.log.filter(function(r){ return r.kind === kind && (point == null || r.point === point); }); }
+function taskDone(p){ return logOf('task', p.id).filter(function(r){ return r.day >= p.since; }); }
+
+function render(d){
+  D = d;
+  var temps = d.points.filter(function(p){ return p.kind === 'temp'; }), tasks = d.points.filter(function(p){ return p.kind === 'task'; });
+  // Temperatures: keep what is being typed while the list refreshes
+  var typed = {};
+  temps.forEach(function(p){ var el = document.getElementById('v-' + p.id); if (el) typed[p.id] = el.value; });
+  var need = 0, have = 0, bad = 0;
+  document.getElementById('temps').innerHTML = temps.map(function(p){
+    var reads = logOf('temp', p.id), n = reads.length;
+    need += p.times; have += Math.min(n, p.times);
+    var anyBad = reads.some(function(r){ return !r.ok; }); if (anyBad) bad++;
+    if (SIGN[p.id] == null) SIGN[p.id] = p.hi <= 0 ? '−' : '+';
+    var fix = FIX[p.id];
+    return '<div class="card ' + (anyBad ? 'bad' : n >= p.times ? 'ok' : 'miss') + '">' +
+      '<h3>' + esc(p.name) + '<small>' + n + ' / ' + p.times + ' danas</small></h3>' +
+      '<div class="lim">Dozvoljeno ' + deg(p.lo) + ' do ' + deg(p.hi) + '</div>' +
+      '<div class="reads">' + (reads.map(function(r){
+        return '<span class="chip' + (r.ok ? '' : ' bad') + '">' + deg(r.value) + ' <span>' + hm(r.created) + ' · ' + esc(r.who) + '</span></span>';
+      }).join('') || '<span class="muted">Još nije izmjereno danas</span>') + '</div>' +
+      '<div class="row"><button class="sign" id="s-' + p.id + '" onclick="flip(this);SIGN[' + p.id + ']=this.textContent">' + SIGN[p.id] + '</button>' +
+      '<input id="v-' + p.id + '" inputmode="decimal" autocomplete="off" placeholder="°C" value="' + esc(typed[p.id] || '') + '" onkeydown="if(event.key===\'Enter\')saveTemp(' + p.id + ',this)"/>' +
+      '<span class="unit">°C</span><button class="b" onclick="saveTemp(' + p.id + ',this)">Spremi</button></div>' +
+      (fix ? '<div class="fix"><b>⚠ ' + deg(fix) + ' je izvan granica.</b> Upišite korektivnu mjeru:' +
+        '<textarea id="a-' + p.id + '" maxlength="300"></textarea><div class="quick">' +
+        QUICK.map(function(q){ return '<button onclick="document.getElementById(\'a-' + p.id + '\').value=this.textContent">' + esc(q) + '</button>'; }).join('') +
+        '</div></div>' : '') +
+      '</div>';
+  }).join('') || '<div class="empty">Nema uređaja. Dodajte ih u administraciji (HACCP).</div>';
+  var ct = document.getElementById('cnt-t');
+  ct.textContent = have + ' / ' + need + ' mjerenja' + (bad ? ' · ' + bad + ' odstupanja' : '');
+  ct.className = 'cnt' + (have < need || bad ? ' miss' : '');
+
+  // Tasks by frequency
+  var open = 0;
+  document.getElementById('tasks').innerHTML = ['daily', 'weekly', 'monthly'].map(function(f){
+    var list = tasks.filter(function(p){ return p.freq === f; });
+    if (!list.length) return '';
+    return '<h2 class="sec">' + FREQ[f][0] + '</h2>' + list.map(function(p){
+      var done = taskDone(p), last = done[done.length - 1];
+      if (!done.length) open++;
+      return '<div class="task' + (done.length ? ' ok' : '') + '"><div><div class="nm">' + esc(p.name) + '</div>' +
+        (last ? '<div class="dn">✓ ' + (f === 'daily' ? '' : dm(last.created) + ' ') + hm(last.created) + ' · ' + esc(last.who) + (last.action ? ' · ' + esc(last.action) : '') + '</div>'
+          : '<div class="due">Treba obaviti ' + FREQ[f][1] + '</div>') + '</div>' +
+        (done.length ? '<button class="b grey" onclick="saveTask(' + p.id + ',this)">＋ Opet</button>' : '<button class="b" onclick="saveTask(' + p.id + ',this)">✓ Obavljeno</button>') + '</div>';
+    }).join('');
+  }).join('') || '<div class="empty">Nema zadataka. Dodajte ih u administraciji (HACCP).</div>';
+  var cc = document.getElementById('cnt-c');
+  cc.textContent = open ? open + ' za obaviti' : 'sve obavljeno'; cc.className = 'cnt' + (open ? ' miss' : '');
+
+  // Goods received today
+  var goods = logOf('goods');
+  document.getElementById('goods').innerHTML = goods.slice().reverse().map(function(r){
+    var x = r.data || {};
+    return '<div class="it"><b>' + esc(r.name) + '</b> · ' + esc(x.supplier) + ' ' +
+      (r.ok ? '<span class="okc">✓ prihvaćeno</span>' : '<span class="noc">✗ ' + (x.accepted ? 'ambalaža neispravna' : 'odbijeno') + '</span>') +
+      '<div class="muted">' + hm(r.created) + ' · ' + esc(r.who) + (r.value != null ? ' · ' + deg(r.value) : '') + (x.lot ? ' · LOT ' + esc(x.lot) : '') +
+      (x.expiry ? ' · rok ' + new Date(x.expiry + 'T12:00:00').toLocaleDateString('hr-HR') : '') + (r.action ? ' · ' + esc(r.action) : '') + '</div></div>';
+  }).join('') || '<div class="empty">Danas još nema zaprimljene robe.</div>';
+  document.getElementById('cnt-g').textContent = goods.length + ' danas';
+
+  var sups = {}; D.log.forEach(function(r){ if (r.data && r.data.supplier) sups[r.data.supplier] = 1; });
+  try { JSON.parse(localStorage.getItem('deveron-haccp-sups') || '[]').forEach(function(s){ sups[s] = 1; }); } catch (e) {}
+  document.getElementById('sups').innerHTML = Object.keys(sups).map(function(s){ return '<option value="' + esc(s) + '">'; }).join('');
+}
+
+function saveTemp(id, btn){
+  var p = D.points.filter(function(x){ return x.id === id; })[0], v = readTemp('v-' + id, 's-' + id);
+  if (v === null || isNaN(v)) { toast('Upišite temperaturu, npr. 3,5', true); return; }
+  var out = v < p.lo || v > p.hi, action = '';
+  if (out) {
+    var a = document.getElementById('a-' + id);
+    action = a ? a.value.trim() : '';
+    if (FIX[id] !== v || !action) { FIX[id] = v; SIGN[id] = v < 0 ? '−' : '+'; render(D); document.getElementById('v-' + id).value = String(Math.abs(v)).replace('.', ','); document.getElementById('a-' + id).focus(); return; }
+  }
+  btn.disabled = true;
+  post('/api/haccp/temp', {point: id, value: v, action: action}).then(function(d){
+    delete FIX[id]; document.getElementById('v-' + id).value = ''; render(d);
+    toast(out ? 'Spremljeno s korektivnom mjerom' : '✓ ' + deg(v) + ' spremljeno');
+  }).catch(fail).then(function(){ btn.disabled = false; });
+}
+
+function saveTask(id, btn){
+  btn.disabled = true;
+  post('/api/haccp/task', {point: id}).then(function(d){ render(d); toast('✓ Zabilježeno'); }).catch(fail).then(function(){ btn.disabled = false; });
+}
+
+function saveGoods(btn){
+  var g = function(id){ return document.getElementById(id); };
+  var t = readTemp('g-temp', 'g-sign');
+  if (!g('g-sup').value.trim() || !g('g-prod').value.trim()) { toast('Upišite dobavljača i proizvod', true); return; }
+  if (t !== null && isNaN(t)) { toast('Temperatura nije ispravna', true); return; }
+  if (g('g-no').checked && !g('g-note').value.trim()) { toast('Upišite razlog odbijanja u napomenu', true); g('g-note').focus(); return; }
+  btn.disabled = true;
+  var sup = g('g-sup').value.trim();
+  post('/api/haccp/goods', {supplier: sup, product: g('g-prod').value, temp: t, lot: g('g-lot').value, expiry: g('g-exp').value,
+    pack_ok: g('g-pack').checked, accepted: g('g-yes').checked, note: g('g-note').value}).then(function(d){
+    try { var s = JSON.parse(localStorage.getItem('deveron-haccp-sups') || '[]'); if (s.indexOf(sup) < 0) { s.unshift(sup); localStorage.setItem('deveron-haccp-sups', JSON.stringify(s.slice(0, 40))); } } catch (e) {}
+    ['g-prod', 'g-temp', 'g-lot', 'g-exp', 'g-note'].forEach(function(id){ g(id).value = ''; });
+    g('g-pack').checked = true; g('g-yes').checked = true;
+    render(d); toast('✓ Prijem robe spremljen');
+  }).catch(fail).then(function(){ btn.disabled = false; });
+}
+
+function fail(e){
+  if (e === 'pin' || e === 'no_pin') { localStorage.removeItem('deveron-hpin'); location.reload(); return; }
+  toast(e === 'net' || e instanceof TypeError ? 'Nema veze — nije spremljeno, pokušajte ponovno' : 'Nije spremljeno (' + e + ')', true);
+}
+
+function poll(){
+  var st = document.getElementById('status');
+  api('/api/haccp').then(function(d){
+    // Don't redraw under the cook's fingers while a corrective action is being typed
+    if (!Object.keys(FIX).length) render(d); else D = d;
+    st.textContent = new Date().toLocaleDateString('hr-HR') + ' · povezano'; st.className = '';
+  }).catch(function(e){
+    if (e === 'pin' || e === 'no_pin') { localStorage.removeItem('deveron-hpin'); location.reload(); return; }
+    st.textContent = '⚠ Nema veze'; st.className = 'bad';
+  });
+}
+
+document.getElementById('pin').addEventListener('keydown', function(e){ if (e.key === 'Enter') login(); });
+document.getElementById('who-in').addEventListener('keydown', function(e){ if (e.key === 'Enter') setWho(); });
+if (PIN) {
+  api('/api/haccp').then(function(d){ document.getElementById('login').hidden = true; ready(d); })
+    .catch(function(){ localStorage.removeItem('deveron-hpin'); PIN = ''; });
+}
+</script>
+</body>
+</html>
