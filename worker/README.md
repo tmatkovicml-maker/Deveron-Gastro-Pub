@@ -9,6 +9,7 @@ Prima narudžbe sa stolova (`deveronpub.com/?stol=N`) i narudžbe za van, prikaz
    - `WAITER_PIN` – PIN za konobare (tablet)
    - `ADMIN_PIN` i `OWNER_PIN` – dva odvojena administratorska PIN-a (administrator i vlasnik) za stranicu `/admin`
    - `KITCHEN_PIN` – neobavezno, PIN za kuhinjski ekran `/kuhinja` (bez njega vrijedi `WAITER_PIN`)
+   - `HACCP_PIN` – neobavezno, PIN za HACCP evidenciju `/haccp` (bez njega vrijedi `KITCHEN_PIN`, odnosno `WAITER_PIN`)
 4. Neobavezno (type **Text**): `LOYALTY_TIERS` – pragovi popusta, npr. `100:10,300:15`
    (od 100 € potrošnje 10 %, od 300 € 15 %). Bez nje vrijedi `100:10,300:15`.
 5. Adresa Workera (`https://deveron-gastro-pub.t-matkovicml.workers.dev`) upisana je u `index.html` kao `ORDER_API`.
@@ -30,6 +31,15 @@ Drugi tablet u kuhinji: `https://deveron-gastro-pub.t-matkovicml.workers.dev/kuh
 - „🔥 U pripremi" → „✅ Gotovo": konobaru na tabletu zasvira zelena kartica „🍽 HRANA GOTOVA · S-12" → „✓ Odneseno" (za van „✓ Spakirano", a gost na mobitelu vidi „Spremno za preuzimanje"). Na tlocrtu je takav stol zelen.
 - Vrijeme čekanja postaje narančasto nakon 15 i crveno nakon 25 minuta.
 - Narudžbe koje konobar upiše samo u blagajnu ovdje se ne vide.
+
+## HACCP (digitalna evidencija)
+Tablet u kuhinji: `https://deveron-gastro-pub.t-matkovicml.workers.dev/haccp` (ili gumb „🌡 HACCP" na kuhinjskom ekranu) → PIN (`HACCP_PIN`, a ako nije postavljen, `KITCHEN_PIN` pa `WAITER_PIN`) → ime ili inicijali osobe koja upisuje (gumb „👤 … · promijeni" kod smjene).
+- **🌡 Temperature**: za svaki hladnjak i zamrzivač upisuje se temperatura (zadano 2 puta dnevno); gumb **+/−** za minus (zamrzivač je već na −). Ako je izvan granica, traži se korektivna mjera (npr. „Pozvan serviser") i zapis je crven.
+- **🧽 Čišćenje i kontrole**: dnevni, tjedni i mjesečni zadaci → „✓ Obavljeno" (bilježi se tko i kada). Narančasto = još nije obavljeno u tom razdoblju.
+- **📦 Prijem robe**: dobavljač, proizvod, temperatura pri prijemu, LOT, rok trajanja, ambalaža, prihvaćeno / odbijeno (uz razlog).
+- Zapisi se ne mogu brisati ni mijenjati i čuvaju se 2 godine.
+
+U `/admin` → **HACCP**: pregled po razdoblju (tablica temperatura po danima s propuštenim mjerenjima, zadaci, prijem robe), **🖨 Ispis / PDF za inspekciju** i izvoz u CSV. Ispod se uređuju hladnjaci (naziv, min/max °C, broj mjerenja dnevno) i zadaci (dnevno/tjedno/mjesečno).
 
 ## Administracija
 `https://deveron-gastro-pub.t-matkovicml.workers.dev/admin` → `ADMIN_PIN` ili `OWNER_PIN`.
@@ -63,7 +73,8 @@ Kartica „AI Chat" vidi se samo kad je ključ upisan i prekidač uključen. Ogr
 - `POST /api/orders/:id/done`, `POST /api/takeaway/:id/accept|reject|done`, `POST /api/calls/:id/done`,
   `GET /api/menu-names`, `POST /api/soldout {name, on}`, `GET|POST /api/reservations`,
   `POST /api/reservations/:id/confirm|reject|arrived|noshow|cancel` (zaglavlje `X-Waiter-Pin`)
-- `GET /api/admin/orders?from=&to=`, `GET /api/admin/cards`, `DELETE /api/admin/cards/:code`, `GET|POST /api/admin/settings`, `GET|POST /api/admin/tables` (zaglavlje `X-Admin-Pin`)
+- `GET /api/haccp`, `POST /api/haccp/temp|task|goods` (zaglavlje `X-Haccp-Pin`)
+- `GET /api/admin/orders?from=&to=`, `GET /api/admin/haccp?from=&to=`, `POST /api/admin/haccp/points`, `GET /api/admin/cards`, `DELETE /api/admin/cards/:code`, `GET|POST /api/admin/settings`, `GET|POST /api/admin/tables` (zaglavlje `X-Admin-Pin`)
 
 Čuvanje: narudžbe (stol i za van) i rezervacije godinu dana; ime i mobitel gosta za van 7 dana, kod rezervacije 30 dana nakon datuma; loyalty kartice 2 godine od zadnjeg korištenja. Tablet prikazuje samo otvorene narudžbe iz zadnja 24 sata.
 Lokalno testiranje: `npx wrangler dev` uz datoteku `.dev.vars` (npr. `WAITER_PIN=1234`, `ADMIN_PIN=9999`, `OWNER_PIN=8888`).
