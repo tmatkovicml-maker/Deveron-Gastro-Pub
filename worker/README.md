@@ -8,6 +8,7 @@ Prima narudžbe sa stolova (`deveronpub.com/?stol=N`) i narudžbe za van, prikaz
 3. Worker `deveron-gastro-pub` → **Settings** → **Runtime variables and secrets** → **Add** (type **Secret**):
    - `WAITER_PIN` – PIN za konobare (tablet)
    - `ADMIN_PIN` i `OWNER_PIN` – dva odvojena administratorska PIN-a (administrator i vlasnik) za stranicu `/admin`
+   - `KITCHEN_PIN` – neobavezno, PIN za kuhinjski ekran `/kuhinja` (bez njega vrijedi `WAITER_PIN`)
 4. Neobavezno (type **Text**): `LOYALTY_TIERS` – pragovi popusta, npr. `100:10,300:15`
    (od 100 € potrošnje 10 %, od 300 € 15 %). Bez nje vrijedi `100:10,300:15`.
 5. Adresa Workera (`https://deveron-gastro-pub.t-matkovicml.workers.dev`) upisana je u `index.html` kao `ORDER_API`.
@@ -21,6 +22,14 @@ Otvoriti adresu Workera u pregledniku tableta, upisati `WAITER_PIN` i dodirnuti 
 - „📅 Rezervacije": nova rezervacija s weba zasvira i pojavi se kao narančasta kartica → „✓ Potvrdi i odaberi stol" (dodir na stol u tlocrtu, može i više stolova; sivo = zauzeto drugom rezervacijom ±2 h) ili „✗ Nema mjesta". Popis po danu: „✓ Stigli", „Stol", „Nisu došli", „Otkaži" i „＋ Rezervacija (telefon)" za rezervacije primljene telefonom. U „🗺 Tlocrt" današnje rezervacije su plave.
 - „🚫 Rasprodano" (gore desno): jelo ili piće označeno kao rasprodano gostima piše „Trenutno nije dostupno",
   ne može se naručiti i AI ga ne preporučuje. Oznaka vrijedi do kraja dana.
+
+## Kuhinja
+Drugi tablet u kuhinji: `https://deveron-gastro-pub.t-matkovicml.workers.dev/kuhinja` → PIN (`KITCHEN_PIN`, a ako nije postavljen, `WAITER_PIN`) → „Uključi zvuk i počni".
+- Stupci **Novo · U pripremi · Gotovo**. Stižu samo jela (Jelovnik, Specijaliteti, Deserti, hrana za doručak); pića ostaju na šanku.
+- Narudžbe sa stola stižu odmah, narudžbe za van kad ih konobar prihvati (vidi se i do kad moraju biti gotove).
+- „🔥 U pripremi" → „✅ Gotovo": konobaru na tabletu zasvira zelena kartica „🍽 HRANA GOTOVA · S-12" → „✓ Odneseno" (za van „✓ Spakirano", a gost na mobitelu vidi „Spremno za preuzimanje"). Na tlocrtu je takav stol zelen.
+- Vrijeme čekanja postaje narančasto nakon 15 i crveno nakon 25 minuta.
+- Narudžbe koje konobar upiše samo u blagajnu ovdje se ne vide.
 
 ## Administracija
 `https://deveron-gastro-pub.t-matkovicml.workers.dev/admin` → `ADMIN_PIN` ili `OWNER_PIN`.

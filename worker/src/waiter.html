@@ -90,6 +90,9 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .plan-legend{margin-top:.6rem;color:#555;font-size:.9rem;display:flex;gap:1rem;flex-wrap:wrap;}
 #so-btn{background:#fff;color:#b71c1c;border:none;border-radius:8px;padding:.45rem .8rem;font-weight:bold;font-size:.95rem;cursor:pointer;}
 .card.call{border-top-color:#d32f2f;background:#fff5f5;}
+.card.ready{border-top-color:#1b7f3b;background:#f1faf3;}
+.ready-what{font-size:1.5rem;font-weight:bold;color:#1b7f3b;margin:.2rem 0 .3rem;}
+.ft.food{background:#c8e6c9;border-color:#1b7f3b;}
 .card.call.bill{border-top-color:#6a1b9a;background:#faf5ff;}
 .call-what{font-size:1.5rem;font-weight:bold;margin:.2rem 0 .3rem;}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;justify-content:flex-end;}
@@ -144,7 +147,7 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 <div id="plan" hidden>
   <div class="plan-tabs" id="plan-tabs"></div>
   <div class="floor" id="floor"></div>
-  <div class="plan-legend"><span>🟨 otvorena narudžba</span><span>🟥 poziv / račun</span><span>🟦 rezervirano danas</span><span>Stolove i nazive mijenja administrator (Tlocrt).</span></div>
+  <div class="plan-legend"><span>🟨 otvorena narudžba</span><span>🟥 poziv / račun</span><span>🟩 hrana gotova</span><span>🟦 rezervirano danas</span><span>Stolove i nazive mijenja administrator (Tlocrt).</span></div>
 </div>
 
 <div class="overlay" id="login">
@@ -222,6 +225,17 @@ function ring(){
   });
 }
 
+// Food ready in the kitchen: bright double ding
+function ding(){
+  if (!audio) return;
+  [0, 0.22].forEach(function(t){
+    var o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'triangle'; o.frequency.value = 1760; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.4, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.5);
+    o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.52);
+  });
+}
+
 // New reservation: soft rising three-note chime
 function chime(){
   if (!audio) return;
@@ -280,6 +294,19 @@ function callCard(o, isNew, now){
     '<div class="call-what">' + what + '</div>' +
     '<div class="meta">' + new Date(o.created).toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}) + ' · ' + ago(now - o.created) + '</div>' +
     '<button class="done" onclick="callDone(' + o.id + ', this)">✓ Riješeno</button></div>';
+}
+
+function readyCard(r, isNew, now){
+  var head = r.type === 'tk' ? '🥡 #' + r.id + ' ' + esc(r.name || '') : esc(tname(r.tbl));
+  return '<div class="card ready' + (isNew ? ' new' : '') + '">' +
+    '<div class="tbl">' + head + '</div>' +
+    '<div class="ready-what">🍽 HRANA GOTOVA' + (r.type === 'tk' ? ' · spakirati' : ' · odnijeti') + '</div>' +
+    '<div class="meta">iz kuhinje ' + ago(now - r.k_ready) + '</div>' +
+    '<button class="done" onclick="served(\'' + r.type + '\',' + r.id + ', this)">✓ ' + (r.type === 'tk' ? 'Spakirano' : 'Odneseno') + '</button></div>';
+}
+function served(type, id, btn){
+  btn.disabled = true;
+  api('/api/kitchen/' + type + '/' + id + '/served', {method: 'POST', body: '{}'}).then(poll).catch(function(){ btn.disabled = false; });
 }
 
 function callDone(id, btn){
@@ -355,10 +382,12 @@ function drawPlan(){
     if (r.day !== LAST.today || r.status !== 'confirmed') return;
     r.tables.forEach(function(id){ if (!resv[id] && hm2min(r.time) >= nowMin - 30) resv[id] = r; });
   });
+  var food = {};
+  (LAST.ready || []).forEach(function(r){ if (r.type === 'table') food[r.tbl] = true; });
   LAST.orders.forEach(function(o){ orders[o.tbl] = (orders[o.tbl] || 0) + 1; });
   (LAST.calls || []).forEach(function(c){ calls[c.tbl] = c.kind === 'bill' ? '🧾' : '🙋'; });
   document.getElementById('floor').innerHTML = TABLES.filter(function(t){ return t.area === AREA; }).map(function(t){
-    var cls = calls[t.id] ? ' call' : orders[t.id] ? ' order' : resv[t.id] ? ' res' : '';
+    var cls = calls[t.id] ? ' call' : food[t.id] ? ' food' : orders[t.id] ? ' order' : resv[t.id] ? ' res' : '';
     var r = resv[t.id];
     return '<div class="ft' + cls + '" style="left:' + t.x + '%;top:' + t.y + '%">' + esc(t.name) +
       '<small>' + (calls[t.id] || '') + (orders[t.id] ? ' 🧾' + orders[t.id] : '') +
@@ -515,17 +544,20 @@ function lines(o){
 
 function render(data){
   var grid = document.getElementById('grid'), freshTable = false, freshTk = false;
-  var tk = data.takeaway || [], calls = data.calls || [], freshCall = false, freshRes = false;
+  var tk = data.takeaway || [], calls = data.calls || [], freshCall = false, freshRes = false, freshReady = false, ready = data.ready || [];
   TODAY = data.today || TODAY;
   var newRes = (data.reservations || []).filter(function(r){ return r.status === 'new'; });
   document.getElementById('v-res').textContent = '📅 Rezervacije' + (newRes.length ? ' (' + newRes.length + ')' : '');
   SOLD = data.soldout || SOLD; drawSoldBtn();
   TABLES = data.tables || TABLES; LAST = data; drawPlan();
-  if (!data.orders.length && !tk.length && !calls.length && !newRes.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
-  var cards = newRes.map(function(r){
+  if (!data.orders.length && !tk.length && !calls.length && !newRes.length && !ready.length){ grid.innerHTML = '<div class="empty">Nema otvorenih narudžbi ✓</div>'; first = false; return; }
+  var cards = ready.map(function(r){
+    var key = 'f' + r.type + r.id + '-' + r.k_ready, isNew = !seen[key] && !first; if (isNew) freshReady = true; seen[key] = true;
+    return readyCard(r, isNew, data.now);
+  }).concat(newRes.map(function(r){
     var key = 'r' + r.id, isNew = !seen[key] && !first; if (isNew) freshRes = true; seen[key] = true;
     return resCard(r, isNew);
-  }).concat(calls.map(function(o){
+  })).concat(calls.map(function(o){
     var key = 'c' + o.id + (o.pay || ''), isNew = !seen[key] && !first; if (isNew) freshCall = true; seen[key] = true;
     return callCard(o, isNew, data.now);
   })).concat(tk.map(function(o){
@@ -536,7 +568,7 @@ function render(data){
     return tableCard(o, isNew, data.now);
   }));
   grid.innerHTML = cards.join('');
-  if (freshCall) ring(); else if (freshRes) chime(); else if (freshTk) beep(true); else if (freshTable) beep(false);
+  if (freshCall) ring(); else if (freshReady) ding(); else if (freshRes) chime(); else if (freshTk) beep(true); else if (freshTable) beep(false);
   first = false;
 }
 

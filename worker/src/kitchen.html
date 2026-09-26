@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex"/>
+<title>Deveron · Kuhinja</title>
+<style>
+:root{--navy:#0a1628;--gold:#c9a84c;--green:#1b7f3b;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,Helvetica,sans-serif;background:#10151d;color:#eee;min-height:100vh;}
+header{background:var(--navy);color:var(--gold);padding:.7rem 1.2rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5;}
+header h1{font-size:1.2rem;letter-spacing:.12em;}
+#status{font-size:.9rem;color:#cfd6e0;}
+#status.bad{color:#ff8a80;font-weight:bold;}
+#board{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;padding:.8rem;min-height:calc(100vh - 52px);}
+@media (max-width:900px){#board{grid-template-columns:1fr;}}
+.col{background:#171e29;border-radius:12px;padding:.6rem;display:flex;flex-direction:column;gap:.7rem;}
+.col h2{font-size:1rem;letter-spacing:.12em;color:#9aa4b2;display:flex;justify-content:space-between;padding:.2rem .3rem;}
+.col h2 b{color:#fff;}
+.t{background:#fff;color:#111;border-radius:10px;padding:.8rem .9rem;border-top:8px solid var(--gold);}
+.t.tk{border-top-color:#1565c0;}
+.t.new{animation:flash 1s 3;}
+@keyframes flash{50%{background:#fff4c2;}}
+.t.prep{border-top-color:#ef6c00;}
+.t.ready{opacity:.75;border-top-color:var(--green);}
+.th{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;}
+.th .n{font-size:1.9rem;font-weight:bold;}
+.t.tk .th .n{color:#1565c0;font-size:1.5rem;}
+.age{font-size:1.05rem;font-weight:bold;color:#555;white-space:nowrap;}
+.age.warn{color:#ef6c00;} .age.late{color:#c62828;}
+.sub{color:#555;font-size:.95rem;margin:.1rem 0 .4rem;}
+.l{display:flex;gap:.6rem;font-size:1.35rem;padding:.3rem 0;border-bottom:1px solid #eee;}
+.l b{min-width:2.2em;}
+.note{margin-top:.5rem;background:#fff4c2;padding:.45rem .6rem;border-radius:6px;font-size:1.15rem;font-weight:bold;}
+.b{margin-top:.7rem;width:100%;padding:1rem;border:none;border-radius:10px;font-size:1.25rem;font-weight:bold;cursor:pointer;}
+.b-prep{background:#ef6c00;color:#fff;}
+.b-ready{background:var(--green);color:#fff;}
+.b-undo{background:#eee;color:#333;font-size:1rem;padding:.6rem;}
+.empty{color:#667;text-align:center;padding:2rem .5rem;font-size:1.05rem;}
+.overlay{position:fixed;inset:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem;z-index:10;text-align:center;}
+.overlay[hidden]{display:none;}
+.overlay h2{color:var(--gold);letter-spacing:.1em;}
+.overlay input{font-size:2rem;width:10rem;text-align:center;padding:.4rem;border-radius:8px;border:none;letter-spacing:.3em;}
+.overlay button{font-size:1.2rem;padding:.8rem 2rem;border-radius:10px;border:none;background:var(--gold);color:var(--navy);font-weight:bold;cursor:pointer;}
+.overlay p{color:#cfd6e0;max-width:28rem;}
+#pin-err{color:#ff8a80;min-height:1.2em;}
+</style>
+</head>
+<body>
+<header><h1>DEVERON · KUHINJA</h1><div id="status">…</div></header>
+<div id="board">
+  <div class="col"><h2>NOVO <b id="c-new">0</b></h2><div id="k-new"></div></div>
+  <div class="col"><h2>U PRIPREMI <b id="c-prep">0</b></h2><div id="k-prep"></div></div>
+  <div class="col"><h2>GOTOVO · zadnjih 15 min <b id="c-ready">0</b></h2><div id="k-ready"></div></div>
+</div>
+
+<div class="overlay" id="login">
+  <h2>KUHINJA</h2>
+  <p>Upišite PIN za kuhinju.</p>
+  <input id="pin" type="password" inputmode="numeric" autocomplete="off"/>
+  <div id="pin-err"></div>
+  <button onclick="login()">Prijava</button>
+</div>
+<div class="overlay" id="start" hidden>
+  <h2>SPREMNO</h2>
+  <p>Dodirnite gumb da se uključi zvuk za nove narudžbe. Ekran ostaje upaljen.</p>
+  <button onclick="start()">🔔 Uključi zvuk i počni</button>
+</div>
+
+<script>
+var PIN = localStorage.getItem('deveron-kpin') || '';
+var seen = {}, first = true, audio = null, NAMES = {};
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function api(path, opts){
+  opts = opts || {};
+  opts.headers = {'X-Kitchen-Pin': PIN, 'Content-Type': 'application/json'};
+  return fetch(path, opts).then(function(r){
+    if (r.status === 401) return r.json().then(function(d){ throw d.error === 'no_pin' ? 'no_pin' : 'pin'; });
+    if (!r.ok) throw 'net';
+    return r.json();
+  });
+}
+
+function login(){
+  PIN = document.getElementById('pin').value.trim();
+  api('/api/kitchen').then(function(){
+    localStorage.setItem('deveron-kpin', PIN);
+    document.getElementById('login').hidden = true;
+    document.getElementById('start').hidden = false;
+  }).catch(function(e){ document.getElementById('pin-err').textContent =
+    e === 'pin' ? 'Pogrešan PIN' : e === 'no_pin' ? 'PIN nije postavljen u Cloudflareu (KITCHEN_PIN ili WAITER_PIN)' : 'Nema veze s poslužiteljem'; });
+}
+
+function start(){
+  try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  keepAwake();
+  document.getElementById('start').hidden = true;
+  poll(); setInterval(poll, 4000); setInterval(tick, 30000);
+}
+function keepAwake(){ if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function(){}); }
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) keepAwake(); });
+
+// New ticket: two low "dong" notes, different from the waiter tablet
+function bell(){
+  if (!audio) return;
+  [0, 0.35].forEach(function(t, i){
+    var o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = i ? 523 : 659; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.5, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.6);
+    o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.62);
+  });
+}
+
+var LAST = null;
+function mins(ms){ return Math.max(0, Math.floor((Date.now() - ms) / 60000)); }
+function hm(ms){ return new Date(ms).toLocaleTimeString('hr-HR', {hour:'2-digit', minute:'2-digit'}); }
+
+function ticket(t, isNew){
+  var key = t.type + '/' + t.id, age = mins(t.created);
+  var head = t.type === 'tk' ? '🥡 #' + t.id + ' ' + esc(t.name || '') : esc(NAMES[t.tbl] || 'Stol ' + t.tbl);
+  var sub = t.type === 'tk' ? 'Za van · gotovo do <b>' + (t.ready_at ? hm(t.ready_at) : '–') + '</b>' : 'Stol · naručeno u ' + hm(t.created);
+  var btn = t.k_state === 'ready' ? '<button class="b b-undo" onclick="act(\'' + key + '\',\'undo\',this)">↺ Vrati u pripremu</button>' :
+    t.k_state === 'prep' ? '<button class="b b-ready" onclick="act(\'' + key + '\',\'ready\',this)">✅ Gotovo</button>' :
+    '<button class="b b-prep" onclick="act(\'' + key + '\',\'prep\',this)">🔥 U pripremi</button>';
+  return '<div class="t' + (t.type === 'tk' ? ' tk' : '') + (t.k_state ? ' ' + t.k_state : '') + (isNew ? ' new' : '') + '">' +
+    '<div class="th"><div class="n">' + head + '</div><div class="age ' + (t.k_state === 'ready' ? '' : age >= 25 ? 'late' : age >= 15 ? 'warn' : '') + '" data-c="' + t.created + '">' + age + ' min</div></div>' +
+    '<div class="sub">' + sub + '</div>' +
+    t.lines.map(function(l){ return '<div class="l"><b>' + l.qty + '×</b><span>' + esc(l.name) + '</span></div>'; }).join('') +
+    (t.note ? '<div class="note">⚠ ' + esc(t.note) + '</div>' : '') + btn + '</div>';
+}
+
+function render(d){
+  NAMES = d.names || NAMES; LAST = d;
+  var cols = {'': [], prep: [], ready: []}, fresh = false;
+  d.tickets.sort(function(a, b){ return a.created - b.created; }).forEach(function(t){
+    var key = t.type + '/' + t.id, isNew = !seen[key] && !first;
+    if (isNew) fresh = true; seen[key] = true;
+    (cols[t.k_state] || cols['']).push(ticket(t, isNew));
+  });
+  cols.ready.reverse();
+  [['', 'new'], ['prep', 'prep'], ['ready', 'ready']].forEach(function(p){
+    document.getElementById('k-' + p[1]).innerHTML = cols[p[0]].join('') || '<div class="empty">—</div>';
+    document.getElementById('c-' + p[1]).textContent = cols[p[0]].length;
+  });
+  if (fresh) bell();
+  first = false;
+}
+function tick(){
+  document.querySelectorAll('.age[data-c]').forEach(function(e){
+    var a = mins(+e.getAttribute('data-c')); e.textContent = a + ' min';
+    if (!e.closest('.ready')) e.className = 'age ' + (a >= 25 ? 'late' : a >= 15 ? 'warn' : '');
+  });
+}
+
+function act(key, action, btn){
+  btn.disabled = true;
+  api('/api/kitchen/' + key + '/' + action, {method: 'POST', body: '{}'}).then(poll).catch(function(){ btn.disabled = false; });
+}
+
+function poll(){
+  var st = document.getElementById('status');
+  api('/api/kitchen').then(function(d){
+    render(d);
+    st.textContent = 'Povezano · ' + new Date().toLocaleTimeString('hr-HR'); st.className = '';
+  }).catch(function(e){
+    if (e === 'pin' || e === 'no_pin'){ localStorage.removeItem('deveron-kpin'); location.reload(); return; }
+    st.textContent = '⚠ Nema veze — provjerite internet'; st.className = 'bad';
+  });
+}
+
+if (PIN){
+  api('/api/kitchen').then(function(){ document.getElementById('login').hidden = true; document.getElementById('start').hidden = false; })
+    .catch(function(){ localStorage.removeItem('deveron-kpin'); PIN = ''; });
+}
+document.getElementById('pin').addEventListener('keydown', function(e){ if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>

@@ -22,6 +22,10 @@
 //   POST /api/takeaway/:id/done        collected and paid (adds to the loyalty card)
 //   POST /api/calls/:id/done           guest's call handled
 //   GET  /api/menu-names               dishes and drinks for the sold-out list
+//   POST /api/kitchen/(table|tk)/:id/served   ready food taken to the guest
+// Kitchen screen (X-Kitchen-Pin = KITCHEN_PIN, or WAITER_PIN if KITCHEN_PIN is not set):
+//   GET  /api/kitchen                  food from table orders and accepted takeaway orders
+//   POST /api/kitchen/(table|tk)/:id/(prep|ready|undo)
 //   POST /api/soldout                  {name, on}  mark an item sold out for today
 //   GET  /api/reservations?day=        reservations of a day (plus all waiting for confirmation)
 //   POST /api/reservations             phone booking {day, time, guests, name, phone, note, tables}
@@ -32,7 +36,7 @@
 //   DELETE /api/admin/cards/:code
 //   POST /api/admin/settings           {takeaway?, ai?} – pause / resume takeaway orders and the AI assistant
 //   GET|POST /api/admin/tables         floor plan: [{id, name, area, x, y, seats}]
-// Pages: /  waiter tablet · /admin  orders and loyalty cards
+// Pages: /  waiter tablet · /kuhinja  kitchen screen · /admin  orders and loyalty cards
 //
 // Loyalty is anonymous: a card is only a random code kept on the guest's phone plus the
 // amount spent. Takeaway orders need a name and phone for pickup; these are removed after
@@ -42,6 +46,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import WAITER_PAGE from './waiter.html';
 import ADMIN_PAGE from './admin.html';
+import KITCHEN_PAGE from './kitchen.html';
 import { askClaude, validChat, menuNames } from './ai.js';
 
 const SITE_ORIGINS = ['https://deveronpub.com', 'https://www.deveronpub.com'];
@@ -130,6 +135,12 @@ export class Orders extends DurableObject {
       name TEXT, phone TEXT, pickup TEXT, lang TEXT, note TEXT, lines TEXT NOT NULL,
       total TEXT, discount INTEGER NOT NULL DEFAULT 0, card TEXT,
       status TEXT NOT NULL DEFAULT 'new', ready_at INTEGER, closed INTEGER)`);
+    // Kitchen progress: k_state '' → 'prep' → 'ready', k_served when the waiter has taken it out
+    for (const t of ['orders', 'takeaway']) {
+      const have = this.sql.exec(`PRAGMA table_info(${t})`).toArray().map(c => c.name);
+      for (const [col, type] of [['k_state', "TEXT NOT NULL DEFAULT ''"], ['k_prep', 'INTEGER'], ['k_ready', 'INTEGER'], ['k_served', 'INTEGER']])
+        if (!have.includes(col)) this.sql.exec(`ALTER TABLE ${t} ADD COLUMN ${col} ${type}`);
+    }
     // Settings changed from the admin page; takeaway starts paused until switched on
     this.sql.exec(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`);
     this.sql.exec("INSERT OR IGNORE INTO settings (k, v) VALUES ('takeaway', '0'), ('ai', '1'), ('ai_day', ''), ('res', '0'), ('review', '')");
@@ -406,8 +417,40 @@ export class Orders extends DurableObject {
     return { id: row.id, token, discount, card: card ? card.code : null };
   }
 
+  // ---- kitchen screen ----
+  kitchen() {
+    const now = Date.now(), since = now - 12 * HOUR, shown = now - 15 * 60 * 1000;
+    const pick = "(k_state IN ('', 'prep') OR (k_state = 'ready' AND k_ready >= ?))";
+    const table = this.sql.exec(`SELECT id, created, tbl, note, lines, k_state, k_prep, k_ready FROM orders
+      WHERE created >= ? AND ${pick} ORDER BY created`, since, shown).toArray()
+      .map(o => ({ ...o, type: 'table', lines: JSON.parse(o.lines) }));
+    const tk = this.sql.exec(`SELECT id, created, name, pickup, ready_at, note, lines, k_state, k_prep, k_ready FROM takeaway
+      WHERE status IN ('accepted', 'done') AND created >= ? AND ${pick} ORDER BY created`, since, shown).toArray()
+      .map(o => ({ ...o, type: 'tk', lines: JSON.parse(o.lines) }));
+    return { tickets: table.concat(tk), names: this.tableNames(), now };
+  }
+
+  setKitchen(type, id, action) {
+    const t = type === 'tk' ? 'takeaway' : 'orders', now = Date.now();
+    if (action === 'prep') this.sql.exec(`UPDATE ${t} SET k_state = 'prep', k_prep = COALESCE(k_prep, ?) WHERE id = ?`, now, id);
+    else if (action === 'ready') this.sql.exec(`UPDATE ${t} SET k_state = 'ready', k_ready = ?, k_served = NULL WHERE id = ?`, now, id);
+    else if (action === 'undo') this.sql.exec(`UPDATE ${t} SET k_state = 'prep', k_ready = NULL WHERE id = ?`, id);
+    else if (action === 'served') this.sql.exec(`UPDATE ${t} SET k_served = ? WHERE id = ?`, now, id);
+    return { ok: true };
+  }
+
+  // Food ready in the kitchen and not yet taken out, for the waiter tablet
+  readyFood() {
+    const since = Date.now() - 12 * HOUR;
+    const t = this.sql.exec(`SELECT id, tbl, k_ready FROM orders WHERE k_state = 'ready' AND k_served IS NULL AND created >= ?`, since).toArray()
+      .map(o => ({ type: 'table', id: o.id, tbl: o.tbl, k_ready: o.k_ready }));
+    const k = this.sql.exec(`SELECT id, name, k_ready FROM takeaway WHERE k_state = 'ready' AND k_served IS NULL AND status != 'done' AND created >= ?`, since).toArray()
+      .map(o => ({ type: 'tk', id: o.id, name: o.name, k_ready: o.k_ready }));
+    return t.concat(k).sort((a, b) => a.k_ready - b.k_ready);
+  }
+
   takeawayStatus(id, token) {
-    const t = this.sql.exec('SELECT status AS state, ready_at, discount FROM takeaway WHERE id = ? AND token = ?', id, token).toArray()[0];
+    const t = this.sql.exec('SELECT status AS state, ready_at, discount, k_state FROM takeaway WHERE id = ? AND token = ?', id, token).toArray()[0];
     return t || { error: 'not_found', status: 404 };
   }
 
@@ -424,7 +467,7 @@ export class Orders extends DurableObject {
     const today = zagrebDay();
     const res = this.sql.exec(`SELECT * FROM reservations WHERE (status = 'new' AND day >= ?)
       OR (day = ? AND status IN ('confirmed', 'arrived')) ORDER BY day, time`, today, today).toArray().map(r => this.resRow(r));
-    return { orders, takeaway, calls, soldout: this.soldout(), tables: this.tables(), reservations: res, today };
+    return { orders, takeaway, calls, soldout: this.soldout(), tables: this.tables(), reservations: res, today, ready: this.readyFood() };
   }
 
   done(id) {
@@ -578,6 +621,20 @@ function pinError(request, env) {
   if (!expected) return 'no_pin';
   return (request.headers.get('X-Waiter-Pin') || '').trim() === expected ? null : 'pin';
 }
+// Kitchen screen: its own PIN if set, otherwise the waiters' PIN
+function kitchenError(request, env) {
+  const pin = String(env.KITCHEN_PIN || env.WAITER_PIN || '').trim();
+  if (!pin) return 'no_pin';
+  return (request.headers.get('X-Kitchen-Pin') || '').trim() === pin ? null : 'pin';
+}
+// Kitchen gets food only: dishes, specials, desserts and breakfast food (drinks stay at the bar)
+const KITCHEN_TABS = ['Jelovnik', 'Specijaliteti', 'Deserti'];
+function isFood(name, items) {
+  const it = items.find(i => name === i.name || name.startsWith(i.name + ' ('));
+  if (!it) return true;   // unknown: better to show it
+  return KITCHEN_TABS.includes(it.tab) || (it.tab === 'Doručak' && !/pić|smoothie|frappe/i.test(it.cat));
+}
+
 // Two admin logins (you and the owner), same rights
 function adminError(request, env) {
   const pins = [env.ADMIN_PIN, env.OWNER_PIN].map(p => String(p || '').trim()).filter(Boolean);
@@ -700,6 +757,21 @@ export default {
       return json(await store.done(+m[1]));
     }
 
+    if (path === '/api/kitchen' && request.method === 'GET') {
+      const err = kitchenError(request, env);
+      if (err) return json({ error: err }, 401);
+      const [data, items] = await Promise.all([store.kitchen(), menuNames(env)]);
+      data.tickets = data.tickets.map(t => ({ ...t, lines: t.lines.filter(l => isFood(l.name, items)) })).filter(t => t.lines.length);
+      return json(data);
+    }
+
+    m = path.match(/^\/api\/kitchen\/(table|tk)\/(\d+)\/(prep|ready|undo|served)$/);
+    if (m && request.method === 'POST') {
+      const err = m[3] === 'served' ? pinError(request, env) : kitchenError(request, env);
+      if (err) return json({ error: err }, 401);
+      return json(await store.setKitchen(m[1], +m[2], m[3]));
+    }
+
     m = path.match(/^\/api\/calls\/(\d+)\/done$/);
     if (m && request.method === 'POST') {
       const err = pinError(request, env);
@@ -813,6 +885,7 @@ export default {
     }
 
     if (path === '/' || path === '/konobar') return html(WAITER_PAGE);
+    if (path === '/kuhinja') return html(KITCHEN_PAGE);
     if (path === '/admin') return html(ADMIN_PAGE);
     return new Response('Not found', { status: 404 });
   },
