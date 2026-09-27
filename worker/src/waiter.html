@@ -40,6 +40,8 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .b-ok{background:var(--green);color:#fff;}
 .b-no{background:#fdecea;color:#b71c1c;}
 .b-call{background:#e3f2fd;color:#1565c0;}
+.b-wa{background:#25d366;color:#fff;}
+#msg-text{width:100%;min-height:9rem;font-size:1.1rem;padding:.7rem;border:1px solid #ccc;border-radius:8px;margin:1rem 0 .3rem;font-family:inherit;}
 .ready{font-size:1.15rem;margin-top:.5rem;color:var(--green);font-weight:bold;}
 .empty{grid-column:1/-1;text-align:center;color:#777;font-size:1.3rem;padding:4rem 1rem;}
 .overlay{position:fixed;inset:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem;z-index:10;text-align:center;}
@@ -119,6 +121,18 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
       <input id="so-q" placeholder="Traži jelo ili piće…" oninput="drawSoldout()"/>
       <div id="so-list">Učitavanje…</div>
       <p style="color:#777;margin-top:1rem;font-size:.9rem">Rasprodano se gostima odmah prikazuje kao „Trenutno nije dostupno” i ne može se naručiti. Sutra se samo vraća.</p>
+    </div>
+  </div>
+</div>
+<div class="sheet" id="msg-sheet" hidden onclick="if(event.target===this)closeMsg()">
+  <div class="sheet-box">
+    <div class="sheet-head"><h2 id="msg-title">💬 JAVI GOSTU</h2><button onclick="closeMsg()" aria-label="Zatvori">✕</button></div>
+    <div class="sheet-body">
+      <div id="msg-who" class="who" style="margin-top:1rem"></div>
+      <textarea id="msg-text" oninput="msgLinks()"></textarea>
+      <p style="color:#777;font-size:.9rem">Poruka je na jeziku gosta. Možete je izmijeniti prije slanja.</p>
+      <div class="btns"><a class="b-wa" id="msg-wa" target="_blank" rel="noopener" onclick="msgSent()">💬 WhatsApp</a><a class="b-call" id="msg-sms" onclick="msgSent()">✉️ SMS</a></div>
+      <div class="btns"><button class="b-no" onclick="closeMsg()">Preskoči</button></div>
     </div>
   </div>
 </div>
@@ -440,6 +454,7 @@ function drawRes(){
       '<button class="b-call" onclick="confirmRes(' + r.id + ')">Stol</button>' +
       '<button class="b-no" onclick="resAct(' + r.id + ',\'noshow\',this)">Nisu došli</button>' +
       '<button class="b-no" onclick="resAct(' + r.id + ',\'cancel\',this)">Otkaži</button>';
+    if (r.phone && (r.status === 'confirmed' || r.status === 'rejected')) acts += '<button class="b-wa" onclick="openMsg(' + r.id + ')">💬' + (MSG_SENT[r.id] ? ' ✓' : '') + '</button>';
     if (r.phone) acts += '<a class="b-call" href="tel:' + tel + '">📞</a>';
     return '<div class="rrow ' + st[1] + '"><div class="t">' + esc(r.time) + '<div class="sub">' + (r.day !== RDAY ? dayLabel(r.day) : r.guests + ' os.') + '</div></div>' +
       '<div><div class="who">' + esc(r.name || '—') + (r.day !== RDAY ? ' · ' + r.guests + ' os.' : '') + '</div><div class="sub"><span class="chip ' + st[1] + '">' + st[0] + '</span> ' +
@@ -456,13 +471,78 @@ function resAct(id, action, btn){
   var q = {reject: 'Odbiti rezervaciju? Gost će vidjeti da nema mjesta.', cancel: 'Otkazati rezervaciju?', noshow: 'Označiti da gosti nisu došli?'}[action];
   if (q && !confirm(q)) return;
   btn.disabled = true;
-  api('/api/reservations/' + id + '/' + action, {method: 'POST', body: '{}'}).then(function(){ poll(); if (VIEW === 'res') loadRes(RDAY); })
+  var r = findRes(id);
+  api('/api/reservations/' + id + '/' + action, {method: 'POST', body: '{}'}).then(function(){
+    poll(); if (VIEW === 'res') loadRes(RDAY);
+    if (action === 'reject' && r && r.phone) openMsg(id, 'rejected');
+  })
     .catch(function(){ btn.disabled = false; });
 }
 
+// Message to the guest after a decision: opens WhatsApp or SMS with a ready text in the guest's language.
+// The waiter presses Send, so there is no SMS provider and no cost.
+var MSG = null, MSG_SENT = {};
+try { MSG_SENT = JSON.parse(localStorage.getItem('deveron-msg') || '{}'); } catch (e) {}
+Object.keys(MSG_SENT).forEach(function(k){ if (Date.now() - MSG_SENT[k] > 90 * 864e5) delete MSG_SENT[k]; });
+var RES_PHONE = '+385 51 231 234';
+var MSG_TXT = {
+  HR: ['Vaša rezervacija je potvrđena ✓', 'Nažalost, u to vrijeme nemamo slobodan stol. Nazovite nas pa ćemo naći drugi termin:', 'Broj osoba', 'Vidimo se! Za promjene nas nazovite:', 'u'],
+  EN: ['Your reservation is confirmed ✓', 'Unfortunately we have no free table at that time. Please call us and we will find another time:', 'Guests', 'See you soon! For changes please call:', 'at'],
+  DE: ['Ihre Reservierung ist bestätigt ✓', 'Leider haben wir zu dieser Zeit keinen freien Tisch. Rufen Sie uns an, wir finden eine andere Zeit:', 'Personen', 'Bis bald! Für Änderungen rufen Sie uns an:', 'um'],
+  IT: ['La sua prenotazione è confermata ✓', 'Purtroppo a quell\'ora non abbiamo un tavolo libero. Ci chiami e troveremo un altro orario:', 'Persone', 'A presto! Per modifiche ci chiami:', 'alle'],
+  FR: ['Votre réservation est confirmée ✓', 'Malheureusement, nous n\'avons pas de table libre à cette heure. Appelez-nous pour trouver un autre horaire :', 'Personnes', 'À bientôt ! Pour toute modification, appelez-nous :', 'à'],
+  ES: ['Su reserva está confirmada ✓', 'Lamentablemente no tenemos mesa libre a esa hora. Llámenos y buscaremos otro horario:', 'Personas', '¡Hasta pronto! Para cambios llámenos:', 'a las'],
+  NL: ['Uw reservering is bevestigd ✓', 'Helaas hebben we op dat moment geen tafel vrij. Bel ons, dan zoeken we een ander tijdstip:', 'Personen', 'Tot snel! Voor wijzigingen kunt u ons bellen:', 'om'],
+  PL: ['Rezerwacja potwierdzona ✓', 'Niestety o tej godzinie nie mamy wolnego stolika. Prosimy o telefon, znajdziemy inny termin:', 'Liczba osób', 'Do zobaczenia! W razie zmian prosimy dzwonić:', 'o'],
+  CS: ['Vaše rezervace je potvrzena ✓', 'Bohužel v tu dobu nemáme volný stůl. Zavolejte nám a najdeme jiný termín:', 'Počet osob', 'Těšíme se! Pro změny nám zavolejte:', 'v'],
+  SK: ['Vaša rezervácia je potvrdená ✓', 'Žiaľ, v tom čase nemáme voľný stôl. Zavolajte nám a nájdeme iný termín:', 'Počet osôb', 'Tešíme sa! Pre zmeny nám zavolajte:', 'o'],
+  SL: ['Vaša rezervacija je potrjena ✓', 'Žal ob tem času nimamo proste mize. Pokličite nas in poiskali bomo drug termin:', 'Število oseb', 'Se vidimo! Za spremembe nas pokličite:', 'ob'],
+  HU: ['Foglalását visszaigazoltuk ✓', 'Sajnos abban az időpontban nincs szabad asztalunk. Hívjon minket, és találunk másik időpontot:', 'Vendégek', 'Várjuk szeretettel! Módosításhoz hívjon minket:', ''],
+};
+var MSG_LOC = {HR:'hr-HR',EN:'en-GB',DE:'de-DE',IT:'it-IT',FR:'fr-FR',ES:'es-ES',NL:'nl-NL',PL:'pl-PL',CS:'cs-CZ',SK:'sk-SK',SL:'sl-SI',HU:'hu-HU'};
+function findRes(id){ return (LAST.reservations || []).concat(RLIST).filter(function(x){ return x.id === id; })[0]; }
+// International digits for wa.me: 091… → 38591…, 0049… → 49…
+function intlPhone(p){
+  var d = String(p || '').replace(/[^\d+]/g, '');
+  if (d.indexOf('+') === 0) return d.slice(1);
+  if (d.indexOf('00') === 0) return d.slice(2);
+  if (d.indexOf('0') === 0) return '385' + d.slice(1);
+  return d;
+}
+function msgText(r, status){
+  var lang = MSG_TXT[r.lang] ? r.lang : (r.lang ? 'EN' : 'HR'), t = MSG_TXT[lang];
+  var date = new Date(r.day + 'T12:00:00').toLocaleDateString(MSG_LOC[lang], {weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric'});
+  var when = date + (t[4] ? ' ' + t[4] + ' ' : ' ') + r.time;
+  return 'Deveron Gastro Pub, Mali Lošinj\n' + (status === 'rejected'
+    ? t[1] + ' ' + RES_PHONE + '\n' + when + ' · ' + t[2] + ': ' + r.guests
+    : t[0] + '\n' + when + ' · ' + t[2] + ': ' + r.guests + '\n' + t[3] + ' ' + RES_PHONE);
+}
+function openMsg(id, status){
+  var r = findRes(id);
+  if (!r || !r.phone) return;
+  MSG = {id: id, phone: r.phone};
+  status = status || r.status;
+  document.getElementById('msg-title').textContent = status === 'rejected' ? '💬 JAVI GOSTU · NEMA MJESTA' : '💬 JAVI GOSTU · POTVRĐENO';
+  document.getElementById('msg-who').innerHTML = esc(r.name) + ' · ' + esc(r.phone) + ' ' + (FLAGS[r.lang] || '');
+  document.getElementById('msg-text').value = msgText(r, status);
+  msgLinks();
+  document.getElementById('msg-sheet').hidden = false;
+}
+function msgLinks(){
+  var txt = encodeURIComponent(document.getElementById('msg-text').value);
+  document.getElementById('msg-wa').href = 'https://wa.me/' + intlPhone(MSG.phone) + '?text=' + txt;
+  document.getElementById('msg-sms').href = 'sms:' + MSG.phone.replace(/[^\d+]/g, '') + '?&body=' + txt;
+}
+function msgSent(){
+  MSG_SENT[MSG.id] = Date.now();
+  try { localStorage.setItem('deveron-msg', JSON.stringify(MSG_SENT)); } catch (e) {}
+  setTimeout(function(){ closeMsg(); if (VIEW === 'res') drawRes(); }, 300);
+}
+function closeMsg(){ document.getElementById('msg-sheet').hidden = true; MSG = null; }
+
 // Table picker on the floor plan (confirm, change table, phone booking)
 function confirmRes(id){
-  var r = (LAST.reservations || []).concat(RLIST).filter(function(x){ return x.id === id; })[0];
+  var r = findRes(id);
   if (!r) return;
   openPick({id: id, day: r.day, time: r.time, guests: r.guests, area: r.area, chosen: r.tables.slice(),
     title: 'POTVRDA · ' + dayLabel(r.day).toUpperCase() + ' U ' + r.time + ' · ' + r.guests + ' OS.'});
@@ -533,8 +613,9 @@ function pickOk(){
       .then(done).catch(function(){ alert('Spremanje nije uspjelo.'); }).then(function(){ btn.disabled = false; });
   } else {
     btn.disabled = true;
+    var r = findRes(PICK.id), ask = r && r.phone && r.status === 'new';
     api('/api/reservations/' + PICK.id + '/confirm', {method: 'POST', body: JSON.stringify({tables: PICK.chosen})})
-      .then(done).catch(function(){ alert('Potvrda nije uspjela.'); }).then(function(){ btn.disabled = false; });
+      .then(function(){ done(); if (ask) openMsg(r.id, 'confirmed'); }).catch(function(){ alert('Potvrda nije uspjela.'); }).then(function(){ btn.disabled = false; });
   }
 }
 
