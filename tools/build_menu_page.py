@@ -29,9 +29,19 @@ def price(v):
     return v + ' €' if v and '€' not in v else v
 
 
+def num(v):
+    try:
+        return f"{float(v.replace('€', '').replace('.', '').replace(',', '.').strip()):.2f}"
+    except ValueError:
+        return None
+
+
 def main():
     src = (ROOT / 'index.html').read_text(encoding='utf-8')
     cat_tr = {**site_dict(src, 'CAT_TR'), **site_dict(src, 'SEC_TR')}
+    m = re.search(r"const ANCHOR_DATE = '([^']+)'", src)
+    anchor_date = m.group(1) if m else ''
+    sections = []
     rows = list(csv.reader((ROOT / 'menu.csv').read_text(encoding='utf-8').splitlines()))
     head = [h.strip() for h in rows[0]]
     items = [dict(zip(head, (c.strip() for c in r))) for r in rows[1:]]
@@ -43,6 +53,8 @@ def main():
         if not group:
             continue
         out.append(f'<section><h2>{e(hr)} <span class="en">· {e(en)}</span></h2>')
+        section = {'@type': 'MenuSection', 'name': f'{hr} · {en}', 'hasMenuItem': []}
+        sections.append(section)
         cats = list(dict.fromkeys(i['Kategorija'] for i in group))
         for cat in cats:
             if cat:
@@ -57,7 +69,18 @@ def main():
                 al = [int(a) for a in re.findall(r'\d+', i.get('Alergeni', '')) if 1 <= int(a) <= 14]
                 line = f'<li><div class="row"><span class="name">{e(name)}'
                 line += f' <span class="qty">{e(qty)}</span>' if qty else ''
-                line += f'</span><span class="price">{e(price(i.get("Cijena", "")))}</span></div>'
+                cur = price(i.get('Cijena', ''))
+                anchor = price(i.get('Sidrena cijena', '')) or cur
+                line += f'</span><span class="price">{e(cur)}<small>aktualna cijena</small>'
+                if cur:
+                    line += f'<span class="anchor">{e(anchor)}<small>sidrena cijena {e(anchor_date)}</small></span>'
+                line += '</span></div>'
+                mi = {'@type': 'MenuItem', 'name': name + (f' ({name_en})' if name_en and name_en.lower() != name.lower() else '')}
+                if desc and desc.lower() != name.lower():
+                    mi['description'] = desc
+                if num(i.get('Cijena', '')):
+                    mi['offers'] = {'@type': 'Offer', 'price': num(i['Cijena']), 'priceCurrency': 'EUR'}
+                section['hasMenuItem'].append(mi)
                 if name_en and name_en.lower() != name.lower():
                     line += f'<div class="en">{e(name_en)}</div>'
                 if desc and desc.lower() != name.lower():
@@ -72,7 +95,10 @@ def main():
 
     page = (ROOT / 'tools' / 'menu_template.html').read_text(encoding='utf-8')
     page = page.replace('{{MENU}}', '\n'.join(out)).replace('{{DATE}}', date.today().strftime('%d. %m. %Y.'))
-    page = page.replace('{{COUNT}}', str(len(items)))
+    page = page.replace('{{COUNT}}', str(len(items))).replace('{{ANCHOR_DATE}}', anchor_date)
+    ld = {'@context': 'https://schema.org', '@type': 'Menu', 'name': 'Deveron Gastro Pub – jelovnik / menu',
+          'url': 'https://deveronpub.com/jelovnik.html', 'inLanguage': ['hr', 'en'], 'hasMenuSection': sections}
+    page = page.replace('{{JSONLD}}', json.dumps(ld, ensure_ascii=False).replace('</', '<\\/'))
     (ROOT / 'jelovnik.html').write_text(page, encoding='utf-8')
     print(f'jelovnik.html: {len(items)} items')
 
