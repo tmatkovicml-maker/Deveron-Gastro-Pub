@@ -20,6 +20,7 @@ Otvoriti adresu Workera u pregledniku tableta, upisati `WAITER_PIN` i dodirnuti 
   (tek tada se iznos, umanjen za loyalty popust, pribraja loyalty kartici).
 - Poziv sa stola (gumb 🙋 na mobitelu gosta): „🙋 POZIV KONOBARA" ili „🧾 RAČUN · 💳 KARTICA / 💶 GOTOVINA" → „✓ Riješeno".
 - „📅 Rezervacije": nova rezervacija s weba zasvira i pojavi se kao narančasta kartica → „✓ Potvrdi i odaberi stol" (dodir na stol u tlocrtu, može i više stolova; sivo = zauzeto drugom rezervacijom ±2 h) ili „✗ Nema mjesta". Popis po danu: „✓ Stigli", „Stol", „Nisu došli", „Otkaži" i „＋ Rezervacija (telefon)" za rezervacije primljene telefonom. U „🗺 Tlocrt" današnje rezervacije su plave.
+- „💬 Javi gostu": nakon potvrde ili odbijanja web rezervacije otvori se gotova poruka na jeziku gosta (može se izmijeniti) s gumbima „💬 WhatsApp" i „✉️ SMS". Konobar samo pritisne Pošalji u WhatsAppu ili porukama, pa nema troška ni SMS servisa (tablet treba WhatsApp ili SIM; inače se koristi mobitel lokala). Poruka se kasnije može ponovno poslati gumbom 💬 u popisu rezervacija; ✓ znači da je na tom tabletu već poslana.
 - „🚫 Rasprodano" (gore desno): jelo ili piće označeno kao rasprodano gostima piše „Trenutno nije dostupno",
   ne može se naručiti i AI ga ne preporučuje. Oznaka vrijedi do kraja dana.
 
