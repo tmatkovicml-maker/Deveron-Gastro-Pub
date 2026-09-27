@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Jelovnik i cijene · Deveron Gastro Pub, Mali Lošinj · Menu &amp; prices</title>
-<meta name="description" content="Cijeli jelovnik Deveron Gastro Puba u Malom Lošinju s cijenama i alergenima: specijaliteti, riba i plodovi mora, tjestenine, pizza, doručak, deserti, pića i vina. Full menu with prices in English."/>
+<title>Jelovnik i cijene · Deveron Gastro Pub, Mali Lošinj · riba, pizza, doručak</title>
+<meta name="description" content="Jelovnik Deveron Gastro Puba u Malom Lošinju s cijenama, sidrenim cijenama i alergenima: riba i plodovi mora, tjestenine, preko 20 vrsta pizze, bezglutenska pizza i tjestenina, doručak, deserti, pića i vina. Menu with prices in English · Speisekarte mit Preisen."/>
 <link rel="canonical" href="https://deveronpub.com/jelovnik.html"/>
 <link rel="icon" type="image/png" href="favicon.png"/>
 <meta name="theme-color" content="#0a1628"/>
@@ -26,19 +26,23 @@ li{padding:8px 0;border-bottom:1px dotted var(--line)}
 .row{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
 .name{font-weight:bold}
 .qty{font-weight:normal;color:var(--muted);font-size:.9em}
-.price{white-space:nowrap;font-weight:bold}
+.price{white-space:nowrap;font-weight:bold;text-align:right}
+.price small{display:block;font-weight:normal;font-size:.7rem;color:var(--muted)}
+.anchor{display:block;margin-top:3px;font-weight:normal;font-size:.9rem;color:var(--muted)}
 .desc,.al{font-size:.9rem;color:var(--muted)}
 .info{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:16px 0}
 .info p{margin:4px 0}
 a{color:var(--gold)}
 footer{margin-top:40px;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line);padding-top:12px}
 </style>
+<script type="application/ld+json">{{JSONLD}}</script>
 </head>
 <body>
 <div class="wrap">
 <header>
   <h1>Jelovnik · Deveron Gastro Pub, Mali Lošinj</h1>
   <p class="lede">Menu &amp; prices · Speisekarte · Menù. Gault&amp;Millau Croatia 12,5/20.</p>
+  <p class="lede" lang="de">Speisekarte mit Preisen: frischer Fisch und Meeresfrüchte, hausgemachte Pasta, Pizza (auch glutenfrei), Frühstück und kroatische Weine – direkt in Mali Lošinj.</p>
   <a class="cta" href="/#menu">Interaktivni meni na 16 jezika, alergeni i naručivanje →</a>
 </header>
 <div class="info">
@@ -46,6 +50,8 @@ footer{margin-top:40px;color:var(--muted);font-size:.9rem;border-top:1px solid v
   <p><b>Radno vrijeme / Opening hours:</b> svaki dan 08:00–24:00, kuhinja 08:00–22:00 · zatvoreno 25. 12.</p>
   <p><b>Rezervacije / Reservations:</b> <a href="https://deveron-gastro-pub-1683645478.resos.com/booking">online</a> · <a href="tel:+38551231234">+385 51 231 234</a></p>
   <p><b>Cijene / Prices:</b> u eurima, s PDV-om · in euros, VAT included. {{COUNT}} stavki, stanje {{DATE}}</p>
+  <p><b>Sidrena cijena / Anchor price:</b> uz svaku aktualnu cijenu navedena je i sidrena cijena na dan {{ANCHOR_DATE}} · each current price is shown with its anchor price as of {{ANCHOR_DATE}}</p>
+  <p><b>Bez glutena / Gluten-free:</b> pizza na posebnoj bezglutenskoj bazi i bezglutenske tagliatelle s umakom po želji · gluten-free pizza base and gluten-free tagliatelle with a sauce of your choice. Pitajte konobara · ask your waiter.</p>
 </div>
 {{MENU}}
 <footer>
