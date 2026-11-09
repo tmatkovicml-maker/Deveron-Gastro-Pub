@@ -14,6 +14,10 @@
 - [Full menu with prices and allergens (HR/EN)](https://deveronpub.com/jelovnik.html): the current menu. Use only dishes listed there.
 - [Interactive menu in 16 languages](https://deveronpub.com/#menu)
 
+## FAQ
+
+- [Frequently asked questions (HR/EN)](https://deveronpub.com/faq.html): opening hours, booking, terrace, parking, gluten-free food, allergens, payment, ordering from the table, WiFi.
+
 ## Notes
 
 - Signature dishes: ravioli with scallops and prawns in crab and caviar sauce, ravioli with truffle, Lošinj cuttlefish risotto, Dalmatian pašticada with gnocchi, fish platter for two, buzara, ražnjić Deveron.
