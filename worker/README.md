@@ -8,8 +8,7 @@ Prima narudžbe sa stolova (`deveronpub.com/?stol=N`) i narudžbe za van, prikaz
 3. Worker `deveron-gastro-pub` → **Settings** → **Runtime variables and secrets** → **Add** (type **Secret**):
    - `WAITER_PIN` – PIN za konobare (tablet)
    - `ADMIN_PIN` i `OWNER_PIN` – dva odvojena administratorska PIN-a (administrator i vlasnik) za stranicu `/admin`
-   - `KITCHEN_PIN` – neobavezno, PIN za kuhinjski ekran `/kuhinja` (bez njega vrijedi `WAITER_PIN`)
-   - `HACCP_PIN` – neobavezno, PIN za HACCP evidenciju `/haccp` (bez njega vrijedi `KITCHEN_PIN`, odnosno `WAITER_PIN`)
+   - `KITCHEN_PIN` – neobavezno, PIN za kuhinjski ekran `/kuhinja` i HACCP evidenciju `/haccp` (bez njega vrijedi `WAITER_PIN`)
 4. Neobavezno (type **Text**): `LOYALTY_TIERS` – pragovi popusta, npr. `100:10,300:15`
    (od 100 € potrošnje 10 %, od 300 € 15 %). Bez nje vrijedi `100:10,300:15`.
 5. Adresa Workera (`https://deveron-gastro-pub.t-matkovicml.workers.dev`) upisana je u `index.html` kao `ORDER_API`.
@@ -34,7 +33,7 @@ Drugi tablet u kuhinji: `https://deveron-gastro-pub.t-matkovicml.workers.dev/kuh
 - Narudžbe koje konobar upiše samo u blagajnu ovdje se ne vide.
 
 ## HACCP (digitalna evidencija)
-Tablet u kuhinji: `https://deveron-gastro-pub.t-matkovicml.workers.dev/haccp` (ili gumb „🌡 HACCP" na kuhinjskom ekranu) → PIN (`HACCP_PIN`, a ako nije postavljen, `KITCHEN_PIN` pa `WAITER_PIN`) → ime ili inicijali osobe koja upisuje (gumb „👤 … · promijeni" kod smjene).
+Tablet u kuhinji: `https://deveron-gastro-pub.t-matkovicml.workers.dev/haccp` (ili gumb „🌡 HACCP" na kuhinjskom ekranu) → isti PIN kao kuhinja (`KITCHEN_PIN`, a ako nije postavljen, `WAITER_PIN`); prijava vrijedi za oba ekrana, a gumbi „🌡 HACCP” i „🍳 Kuhinja” prebacuju između njih bez ponovnog upisa PIN-a → ime ili inicijali osobe koja upisuje (gumb „👤 … · promijeni" kod smjene).
 - **🌡 Temperature**: za svaki hladnjak i zamrzivač upisuje se temperatura (zadano 2 puta dnevno); gumb **+/−** za minus (zamrzivač je već na −). Ako je izvan granica, traži se korektivna mjera (npr. „Pozvan serviser") i zapis je crven.
 - **🧽 Čišćenje i kontrole**: dnevni, tjedni i mjesečni zadaci → „✓ Obavljeno" (bilježi se tko i kada). Narančasto = još nije obavljeno u tom razdoblju.
 - **📦 Prijem robe**: dobavljač, proizvod, temperatura pri prijemu, LOT, rok trajanja, ambalaža, prihvaćeno / odbijeno (uz razlog).

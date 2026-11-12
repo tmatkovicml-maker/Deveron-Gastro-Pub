@@ -79,6 +79,7 @@ h2.sec{color:#9aa4b2;letter-spacing:.12em;font-size:1rem;margin:1rem .2rem .5rem
 <body>
 <header>
   <h1>DEVERON · HACCP</h1>
+  <a href="/kuhinja" style="color:var(--gold);border:1px solid rgba(201,168,76,.5);padding:.35rem .8rem;border-radius:8px;text-decoration:none">🍳 Kuhinja</a>
   <div id="status">…</div>
   <button id="who-btn" onclick="askWho()">👤 –</button>
 </header>
@@ -128,7 +129,7 @@ h2.sec{color:#9aa4b2;letter-spacing:.12em;font-size:1rem;margin:1rem .2rem .5rem
 </div>
 
 <script>
-var PIN = localStorage.getItem('deveron-hpin') || '', WHO = localStorage.getItem('deveron-haccp-who') || '';
+var PIN = localStorage.getItem('deveron-kpin') || '', WHO = localStorage.getItem('deveron-haccp-who') || '';
 var D = null, TAB = 't', FIX = {}, SIGN = {};
 var FREQ = {daily: ['DNEVNO', 'danas'], weekly: ['TJEDNO', 'ovaj tjedan'], monthly: ['MJESEČNO', 'ovaj mjesec']};
 var QUICK = ['Hrana premještena u ispravan hladnjak', 'Termostat podešen, ponovno mjerenje za 30 min', 'Vrata bila otvorena, ponovno mjerenje za 30 min', 'Pozvan serviser', 'Neispravna hrana bačena'];
@@ -157,11 +158,11 @@ function toast(msg, bad){
 function login(){
   PIN = document.getElementById('pin').value.trim();
   api('/api/haccp').then(function(d){
-    localStorage.setItem('deveron-hpin', PIN);
+    localStorage.setItem('deveron-kpin', PIN);
     document.getElementById('login').hidden = true;
     ready(d);
   }).catch(function(e){ document.getElementById('pin-err').textContent =
-    e === 'pin' ? 'Pogrešan PIN' : e === 'no_pin' ? 'PIN nije postavljen u Cloudflareu (HACCP_PIN, KITCHEN_PIN ili WAITER_PIN)' : 'Nema veze s poslužiteljem'; });
+    e === 'pin' ? 'Pogrešan PIN' : e === 'no_pin' ? 'PIN nije postavljen u Cloudflareu (KITCHEN_PIN ili WAITER_PIN)' : 'Nema veze s poslužiteljem'; });
 }
 function ready(d){
   render(d);
@@ -306,7 +307,7 @@ function saveGoods(btn){
 }
 
 function fail(e){
-  if (e === 'pin' || e === 'no_pin') { localStorage.removeItem('deveron-hpin'); location.reload(); return; }
+  if (e === 'pin' || e === 'no_pin') { localStorage.removeItem('deveron-kpin'); location.reload(); return; }
   toast(e === 'net' || e instanceof TypeError ? 'Nema veze — nije spremljeno, pokušajte ponovno' : 'Nije spremljeno (' + e + ')', true);
 }
 
@@ -317,7 +318,7 @@ function poll(){
     if (!Object.keys(FIX).length) render(d); else D = d;
     st.textContent = new Date().toLocaleDateString('hr-HR') + ' · povezano'; st.className = '';
   }).catch(function(e){
-    if (e === 'pin' || e === 'no_pin') { localStorage.removeItem('deveron-hpin'); location.reload(); return; }
+    if (e === 'pin' || e === 'no_pin') { localStorage.removeItem('deveron-kpin'); location.reload(); return; }
     st.textContent = '⚠ Nema veze'; st.className = 'bad';
   });
 }
@@ -326,7 +327,7 @@ document.getElementById('pin').addEventListener('keydown', function(e){ if (e.ke
 document.getElementById('who-in').addEventListener('keydown', function(e){ if (e.key === 'Enter') setWho(); });
 if (PIN) {
   api('/api/haccp').then(function(d){ document.getElementById('login').hidden = true; ready(d); })
-    .catch(function(){ localStorage.removeItem('deveron-hpin'); PIN = ''; });
+    .catch(function(){ localStorage.removeItem('deveron-kpin'); PIN = ''; });
 }
 </script>
 </body>
