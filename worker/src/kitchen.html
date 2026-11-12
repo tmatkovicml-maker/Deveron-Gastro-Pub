@@ -45,10 +45,18 @@ header h1{font-size:1.2rem;letter-spacing:.12em;}
 .overlay button{font-size:1.2rem;padding:.8rem 2rem;border-radius:10px;border:none;background:var(--gold);color:var(--navy);font-weight:bold;cursor:pointer;}
 .overlay p{color:#cfd6e0;max-width:28rem;}
 #pin-err{color:#ff8a80;min-height:1.2em;}
+/* Narudžbe | HACCP switch, same on both screens */
+.sw{display:flex;border:1.5px solid var(--gold);border-radius:12px;overflow:hidden;}
+.sw a,.sw button,.sw span{display:flex;align-items:center;gap:.4rem;min-height:48px;padding:0 1.1rem;font-size:1.05rem;font-weight:bold;font-family:inherit;
+  color:var(--gold);background:none;border:0;text-decoration:none;cursor:pointer;}
+.sw .on{background:var(--gold);color:var(--navy);cursor:default;}
+#haccp-frame{position:fixed;inset:0;width:100%;height:100%;border:0;z-index:50;background:#fff;}
+#haccp-frame[hidden]{display:none;}
 </style>
 </head>
 <body>
-<header><h1>DEVERON · KUHINJA</h1><a href="/haccp" style="color:var(--gold);border:1px solid rgba(201,168,76,.5);padding:.35rem .8rem;border-radius:8px;text-decoration:none">🌡 HACCP</a><div id="status">…</div></header>
+<header><h1>DEVERON · KUHINJA</h1><nav class="sw"><span class="on">📋 Narudžbe</span><button onclick="openHaccp()">🌡 HACCP</button></nav><div id="status">…</div></header>
+<iframe id="haccp-frame" hidden title="HACCP"></iframe>
 <div id="board">
   <div class="col"><h2>NOVO <b id="c-new">0</b></h2><div id="k-new"></div></div>
   <div class="col"><h2>U PRIPREMI <b id="c-prep">0</b></h2><div id="k-prep"></div></div>
@@ -94,6 +102,15 @@ function login(){
     e === 'pin' ? 'Pogrešan PIN' : e === 'no_pin' ? 'PIN nije postavljen u Cloudflareu (KITCHEN_PIN ili WAITER_PIN)' : 'Nema veze s poslužiteljem'; });
 }
 
+// HACCP opens on top of the orders, so new orders keep arriving (with sound) while the cook records
+function openHaccp(){
+  var f = document.getElementById('haccp-frame');
+  if (!f.src) f.src = '/haccp?embed=1';
+  f.hidden = false;
+}
+window.addEventListener('message', function(e){
+  if (e.origin === location.origin && e.data === 'deveron-orders') document.getElementById('haccp-frame').hidden = true;
+});
 function start(){
   try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
   keepAwake();
