@@ -30,13 +30,20 @@
 //   GET  /api/reservations?day=        reservations of a day (plus all waiting for confirmation)
 //   POST /api/reservations             phone booking {day, time, guests, name, phone, note, tables}
 //   POST /api/reservations/:id/(confirm|reject|arrived|noshow|cancel)  {tables?}
+// HACCP tablet (X-Haccp-Pin = HACCP_PIN, or KITCHEN_PIN / WAITER_PIN if it is not set):
+//   GET  /api/haccp                    devices, tasks and what is already recorded today / this week / month
+//   POST /api/haccp/temp               {point, value, action?, who}  fridge / freezer temperature
+//   POST /api/haccp/task               {point, who, note?}  cleaning or other task done
+//   POST /api/haccp/goods              {supplier, product, temp?, lot?, expiry?, pack_ok, accepted, note?, who}
 // Admins (X-Admin-Pin = ADMIN_PIN or OWNER_PIN, two separate logins with the same rights):
 //   GET  /api/admin/orders?from=&to=   all table and takeaway orders in a period
 //   GET  /api/admin/cards              loyalty cards
 //   DELETE /api/admin/cards/:code
 //   POST /api/admin/settings           {takeaway?, ai?} – pause / resume takeaway orders and the AI assistant
 //   GET|POST /api/admin/tables         floor plan: [{id, name, area, x, y, seats}]
-// Pages: /  waiter tablet · /kuhinja  kitchen screen · /admin  orders and loyalty cards
+//   GET  /api/admin/haccp?from=&to=    HACCP records of a period (days) for the inspection printout
+//   POST /api/admin/haccp/points       {points: [{id?, kind, name, lo?, hi?, times?, freq?}]}  devices and tasks
+// Pages: /  waiter tablet · /kuhinja  kitchen screen · /haccp  HACCP records · /admin  orders and loyalty cards
 //
 // Loyalty is anonymous: a card is only a random code kept on the guest's phone plus the
 // amount spent. Takeaway orders need a name and phone for pickup; these are removed after
@@ -47,6 +54,7 @@ import { DurableObject } from 'cloudflare:workers';
 import WAITER_PAGE from './waiter.html';
 import ADMIN_PAGE from './admin.html';
 import KITCHEN_PAGE from './kitchen.html';
+import HACCP_PAGE from './haccp.html';
 import { askClaude, validChat, menuNames } from './ai.js';
 
 const SITE_ORIGINS = ['https://deveronpub.com', 'https://www.deveronpub.com'];
@@ -59,6 +67,19 @@ const RES_FROM = 12 * 60, RES_UNTIL = 21 * 60 + 30, RES_STEP = 30, RES_MAX_GUEST
 const KEEP_RES_CONTACT_DAYS = 30;
 const HOUR = 3600 * 1000, DAY = 24 * HOUR;
 const KEEP_ORDERS = 365 * DAY, KEEP_CONTACT = 7 * DAY, KEEP_CARDS = 730 * DAY;
+// HACCP: records are kept 2 years. Starting list of devices (limits in °C, checks a day) and tasks,
+// changed afterwards in the admin page.
+const KEEP_HACCP = 730 * DAY;
+const HACCP_FREQ = ['daily', 'weekly', 'monthly'];
+const DEFAULT_HACCP = [
+  ['temp', 'Hladnjak – kuhinja', 0, 5, 2], ['temp', 'Hladnjak – riba i plodovi mora', 0, 2, 2],
+  ['temp', 'Zamrzivač – kuhinja', -30, -18, 2], ['temp', 'Hladnjak – šank', 0, 5, 2],
+  ['task', 'Čišćenje i dezinfekcija radnih površina', 'daily'], ['task', 'Pranje i dezinfekcija dasaka i noževa', 'daily'],
+  ['task', 'Čišćenje podova u kuhinji', 'daily'], ['task', 'Pražnjenje i pranje kanti za otpad', 'daily'],
+  ['task', 'Provjera rokova trajanja u hladnjacima', 'daily'], ['task', 'Čišćenje sanitarnog čvora za osoblje', 'daily'],
+  ['task', 'Čišćenje unutrašnjosti hladnjaka', 'weekly'], ['task', 'Čišćenje nape i filtera', 'weekly'],
+  ['task', 'Pregled klopki za štetnike (DDD)', 'monthly'], ['task', 'Odmrzavanje i čišćenje zamrzivača', 'monthly'],
+];
 const TAKEAWAY_FROM = 8 * 60, TAKEAWAY_UNTIL = 21 * 60 + 30;   // minutes of the day, Croatian time
 const CLOSED_DAYS = [[12, 25]];                                // [month, day]
 const DEFAULT_TIERS = '100:10,300:15';
@@ -72,6 +93,12 @@ function zagrebNow() {
 // "2026-09-25" in Croatian time; sold-out marks only count for that day
 function zagrebDay() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Zagreb' });
+}
+// Start of the current HACCP period of a task: today, Monday of this week or the 1st of the month
+function periodStart(freq, day) {
+  if (freq === 'monthly') return day.slice(0, 8) + '01';
+  if (freq === 'weekly') return addDays(day, -((new Date(day + 'T12:00:00Z').getUTCDay() + 6) % 7));
+  return day;
 }
 const addDays = (day, n) => { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const isClosedDay = day => CLOSED_DAYS.some(([m, d]) => +day.slice(5, 7) === m && +day.slice(8, 10) === d);
@@ -163,6 +190,20 @@ export class Orders extends DurableObject {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS cards (
       code TEXT PRIMARY KEY, spent REAL NOT NULL DEFAULT 0, orders INTEGER NOT NULL DEFAULT 0,
       created INTEGER NOT NULL, last_used INTEGER)`);
+    // HACCP: devices whose temperature is measured and tasks (cleaning, pest control) to tick off
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS haccp_points (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, name TEXT NOT NULL, lo REAL, hi REAL,
+      times INTEGER NOT NULL DEFAULT 2, freq TEXT NOT NULL DEFAULT 'daily', sort INTEGER NOT NULL DEFAULT 0)`);
+    if (!this.sql.exec('SELECT COUNT(*) AS n FROM haccp_points').one().n) {
+      DEFAULT_HACCP.forEach(([kind, name, a, b, times], i) => kind === 'temp'
+        ? this.sql.exec('INSERT INTO haccp_points (kind, name, lo, hi, times, sort) VALUES (?, ?, ?, ?, ?, ?)', kind, name, a, b, times, i)
+        : this.sql.exec('INSERT INTO haccp_points (kind, name, freq, sort) VALUES (?, ?, ?, ?)', kind, name, a, i));
+    }
+    // One row per record; the device / task name is copied so old records stay readable after renaming
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS haccp_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, created INTEGER NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL,
+      point INTEGER, name TEXT, value REAL, ok INTEGER NOT NULL DEFAULT 1, action TEXT, who TEXT NOT NULL, data TEXT)`);
+    this.sql.exec('CREATE INDEX IF NOT EXISTS haccp_day ON haccp_log (day)');
   }
 
   cleanup(now) {
@@ -175,6 +216,70 @@ export class Orders extends DurableObject {
     this.sql.exec('DELETE FROM calls WHERE created < ?', now - DAY);
     this.sql.exec('DELETE FROM reservations WHERE created < ?', now - KEEP_ORDERS);
     this.sql.exec("UPDATE reservations SET name = '', phone = '' WHERE day < ? AND phone != ''", addDays(zagrebDay(), -KEEP_RES_CONTACT_DAYS));
+    this.sql.exec('DELETE FROM haccp_log WHERE created < ?', now - KEEP_HACCP);
+  }
+
+  // ---- HACCP ----
+  haccpPoints() {
+    return this.sql.exec('SELECT * FROM haccp_points ORDER BY kind DESC, sort, id').toArray();
+  }
+
+  haccpPoint(id, kind) {
+    return this.sql.exec('SELECT * FROM haccp_points WHERE id = ? AND kind = ?', id, kind).toArray()[0];
+  }
+
+  // For the tablet: today's temperatures and goods, and each task's records in its current period
+  haccp() {
+    const day = zagrebDay(), since = periodStart('monthly', day) < periodStart('weekly', day) ? periodStart('monthly', day) : periodStart('weekly', day);
+    const points = this.haccpPoints().map(p => p.kind === 'task' ? { ...p, since: periodStart(p.freq, day) } : p);
+    const log = this.sql.exec(`SELECT * FROM haccp_log WHERE day = ? OR (kind = 'task' AND day >= ?) ORDER BY created`, day, since).toArray()
+      .map(r => ({ ...r, data: r.data ? JSON.parse(r.data) : null }));
+    return { day, points, log };
+  }
+
+  addHaccp(kind, r) {
+    const now = Date.now();
+    this.cleanup(now);
+    let row;
+    if (kind === 'temp') {
+      const p = this.haccpPoint(r.point, 'temp');
+      if (!p) return { error: 'no_point', status: 400 };
+      const ok = r.value >= p.lo && r.value <= p.hi ? 1 : 0;
+      if (!ok && !r.action) return { error: 'action_needed', status: 400 };
+      row = this.sql.exec(`INSERT INTO haccp_log (created, day, kind, point, name, value, ok, action, who)
+        VALUES (?, ?, 'temp', ?, ?, ?, ?, ?, ?) RETURNING id`, now, zagrebDay(), p.id, p.name, r.value, ok, r.action, r.who).one();
+    } else if (kind === 'task') {
+      const p = this.haccpPoint(r.point, 'task');
+      if (!p) return { error: 'no_point', status: 400 };
+      row = this.sql.exec(`INSERT INTO haccp_log (created, day, kind, point, name, action, who)
+        VALUES (?, ?, 'task', ?, ?, ?, ?) RETURNING id`, now, zagrebDay(), p.id, p.name, r.note, r.who).one();
+    } else {
+      const ok = r.accepted && r.pack_ok ? 1 : 0;
+      row = this.sql.exec(`INSERT INTO haccp_log (created, day, kind, name, value, ok, action, who, data)
+        VALUES (?, ?, 'goods', ?, ?, ?, ?, ?, ?) RETURNING id`, now, zagrebDay(), r.product, r.temp, ok, r.note, r.who,
+        JSON.stringify({ supplier: r.supplier, lot: r.lot, expiry: r.expiry, pack_ok: r.pack_ok, accepted: r.accepted })).one();
+    }
+    return { id: row.id, ...this.haccp() };
+  }
+
+  haccpHistory(from, to) {
+    const log = this.sql.exec('SELECT * FROM haccp_log WHERE day >= ? AND day <= ? ORDER BY created', from, to).toArray()
+      .map(r => ({ ...r, data: r.data ? JSON.parse(r.data) : null }));
+    return { points: this.haccpPoints(), log, from, to };
+  }
+
+  // Devices and tasks from the admin page: kept ids are updated, new ones added, missing ones removed
+  // (their old records keep the name)
+  saveHaccpPoints(list) {
+    const keep = list.filter(p => p.id).map(p => p.id);
+    for (const p of this.haccpPoints()) if (!keep.includes(p.id)) this.sql.exec('DELETE FROM haccp_points WHERE id = ?', p.id);
+    list.forEach((p, i) => {
+      if (p.id && this.haccpPoint(p.id, p.kind))
+        this.sql.exec('UPDATE haccp_points SET name = ?, lo = ?, hi = ?, times = ?, freq = ?, sort = ? WHERE id = ?', p.name, p.lo, p.hi, p.times, p.freq, i, p.id);
+      else
+        this.sql.exec('INSERT INTO haccp_points (kind, name, lo, hi, times, freq, sort) VALUES (?, ?, ?, ?, ?, ?, ?)', p.kind, p.name, p.lo, p.hi, p.times, p.freq, i);
+    });
+    return { points: this.haccpPoints() };
   }
 
   // ---- reservations ----
@@ -635,6 +740,54 @@ function isFood(name, items) {
   return KITCHEN_TABS.includes(it.tab) || (it.tab === 'Doručak' && !/pić|smoothie|frappe/i.test(it.cat));
 }
 
+// HACCP tablet: its own PIN if set, otherwise the kitchen's, otherwise the waiters'
+function haccpError(request, env) {
+  const pin = String(env.HACCP_PIN || env.KITCHEN_PIN || env.WAITER_PIN || '').trim();
+  if (!pin) return 'no_pin';
+  return (request.headers.get('X-Haccp-Pin') || '').trim() === pin ? null : 'pin';
+}
+
+const temp = v => { const n = Number(String(v ?? '').replace(',', '.')); return String(v ?? '').trim() !== '' && n >= -50 && n <= 120 ? Math.round(n * 10) / 10 : null; };
+const isDay = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
+
+function validHaccp(kind, body) {
+  const who = str(body?.who, 40);
+  if (!who) return null;
+  if (kind === 'temp') {
+    const value = temp(body.value), point = parseInt(body.point, 10);
+    return value === null || !point ? null : { point, value, who, action: str(body.action, 300) };
+  }
+  if (kind === 'task') {
+    const point = parseInt(body.point, 10);
+    return point ? { point, who, note: str(body.note, 300) } : null;
+  }
+  const supplier = str(body.supplier, 80), product = str(body.product, 120), expiry = str(body.expiry, 10);
+  if (!supplier || !product || (expiry && !isDay(expiry))) return null;
+  const t = str(String(body.temp ?? ''), 10) ? temp(body.temp) : null;
+  if (str(String(body.temp ?? ''), 10) && t === null) return null;
+  return { supplier, product, temp: t, lot: str(body.lot, 60), expiry, pack_ok: body.pack_ok === true,
+    accepted: body.accepted === true, note: str(body.note, 300), who };
+}
+
+function validHaccpPoints(body) {
+  const list = Array.isArray(body?.points) ? body.points : null;
+  if (!list || list.length > 100) return null;
+  const out = [];
+  for (const p of list) {
+    const id = parseInt(p?.id, 10) || 0, name = str(p?.name, 80), kind = p?.kind;
+    if (!name) return null;
+    if (kind === 'temp') {
+      const lo = temp(p.lo), hi = temp(p.hi), times = parseInt(p.times, 10);
+      if (lo === null || hi === null || lo > hi || !(times >= 1 && times <= 6)) return null;
+      out.push({ id, kind, name, lo, hi, times, freq: 'daily' });
+    } else if (kind === 'task') {
+      if (!HACCP_FREQ.includes(p.freq)) return null;
+      out.push({ id, kind, name, lo: null, hi: null, times: 1, freq: p.freq });
+    } else return null;
+  }
+  return out;
+}
+
 // Two admin logins (you and the owner), same rights
 function adminError(request, env) {
   const pins = [env.ADMIN_PIN, env.OWNER_PIN].map(p => String(p || '').trim()).filter(Boolean);
@@ -835,6 +988,25 @@ export default {
       return json(res, res.status || 200);
     }
 
+    // ---- HACCP tablet ----
+    if (path === '/api/haccp' && request.method === 'GET') {
+      const err = haccpError(request, env);
+      if (err) return json({ error: err }, 401);
+      return json(await store.haccp());
+    }
+
+    m = path.match(/^\/api\/haccp\/(temp|task|goods)$/);
+    if (m && request.method === 'POST') {
+      const err = haccpError(request, env);
+      if (err) return json({ error: err }, 401);
+      let body;
+      try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+      const r = validHaccp(m[1], body);
+      if (!r) return json({ error: 'invalid' }, 400);
+      const res = await store.addHaccp(m[1], r);
+      return json(res, res.status || 200);
+    }
+
     // ---- admins ----
     if (path.startsWith('/api/admin/')) {
       const err = adminError(request, env);
@@ -876,6 +1048,18 @@ export default {
         if (!list) return json({ error: 'invalid' }, 400);
         return json(await store.saveTables(list));
       }
+      if (path === '/api/admin/haccp' && request.method === 'GET') {
+        const from = url.searchParams.get('from'), to = url.searchParams.get('to');
+        if (!isDay(from) || !isDay(to)) return json({ error: 'invalid' }, 400);
+        return json(await store.haccpHistory(from, to));
+      }
+      if (path === '/api/admin/haccp/points' && request.method === 'POST') {
+        let body;
+        try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+        const list = validHaccpPoints(body);
+        if (!list) return json({ error: 'invalid' }, 400);
+        return json(await store.saveHaccpPoints(list));
+      }
       if (path === '/api/admin/cards' && request.method === 'GET') {
         return json({ cards: await store.cards(), tiers: tiers(env) });
       }
@@ -886,6 +1070,7 @@ export default {
 
     if (path === '/' || path === '/konobar') return html(WAITER_PAGE);
     if (path === '/kuhinja') return html(KITCHEN_PAGE);
+    if (path === '/haccp') return html(HACCP_PAGE);
     if (path === '/admin') return html(ADMIN_PAGE);
     return new Response('Not found', { status: 404 });
   },
