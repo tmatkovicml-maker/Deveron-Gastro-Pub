@@ -74,12 +74,17 @@ h2.sec{color:#9aa4b2;letter-spacing:.12em;font-size:1rem;margin:1rem .2rem .5rem
 .overlay p{color:#cfd6e0;max-width:28rem;}
 .err{color:#ff8a80;min-height:1.2em;}
 [hidden]{display:none!important;}
+/* Narudžbe | HACCP switch, same on both screens */
+.sw{display:flex;border:1.5px solid var(--gold);border-radius:12px;overflow:hidden;}
+.sw a,.sw button,.sw span{display:flex;align-items:center;gap:.4rem;min-height:48px;padding:0 1.1rem;font-size:1.05rem;font-weight:bold;font-family:inherit;
+  color:var(--gold);background:none;border:0;text-decoration:none;cursor:pointer;}
+.sw .on{background:var(--gold);color:var(--navy);cursor:default;}
 </style>
 </head>
 <body>
 <header>
   <h1>DEVERON · HACCP</h1>
-  <a href="/kuhinja" style="color:var(--gold);border:1px solid rgba(201,168,76,.5);padding:.35rem .8rem;border-radius:8px;text-decoration:none">🍳 Kuhinja</a>
+  <div class="sw"><a href="/kuhinja" onclick="return toOrders()">📋 Narudžbe</a><span class="on">🌡 HACCP</span></div>
   <div id="status">…</div>
   <button id="who-btn" onclick="askWho()">👤 –</button>
 </header>
@@ -153,6 +158,12 @@ function toast(msg, bad){
   document.querySelectorAll('.toast').forEach(function(x){ x.remove(); });
   var t = document.createElement('div'); t.className = 'toast' + (bad ? ' err' : ''); t.textContent = msg;
   document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 2500);
+}
+
+// Inside the kitchen screen: just close the overlay; opened on its own: go to the kitchen screen
+function toOrders(){
+  if (window.parent !== window) { window.parent.postMessage('deveron-orders', location.origin); return false; }
+  return true;
 }
 
 function login(){
