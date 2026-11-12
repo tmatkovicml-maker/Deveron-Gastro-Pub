@@ -30,7 +30,7 @@
 //   GET  /api/reservations?day=        reservations of a day (plus all waiting for confirmation)
 //   POST /api/reservations             phone booking {day, time, guests, name, phone, note, tables}
 //   POST /api/reservations/:id/(confirm|reject|arrived|noshow|cancel)  {tables?}
-// HACCP tablet (X-Haccp-Pin = HACCP_PIN, or KITCHEN_PIN / WAITER_PIN if it is not set):
+// HACCP tablet (X-Haccp-Pin = the kitchen PIN: KITCHEN_PIN, or WAITER_PIN if it is not set):
 //   GET  /api/haccp                    devices, tasks and what is already recorded today / this week / month
 //   POST /api/haccp/temp               {point, value, action?, who}  fridge / freezer temperature
 //   POST /api/haccp/task               {point, who, note?}  cleaning or other task done
@@ -740,9 +740,9 @@ function isFood(name, items) {
   return KITCHEN_TABS.includes(it.tab) || (it.tab === 'Doručak' && !/pić|smoothie|frappe/i.test(it.cat));
 }
 
-// HACCP tablet: its own PIN if set, otherwise the kitchen's, otherwise the waiters'
+// HACCP records belong to the kitchen: same PIN as the kitchen screen (KITCHEN_PIN, otherwise the waiters')
 function haccpError(request, env) {
-  const pin = String(env.HACCP_PIN || env.KITCHEN_PIN || env.WAITER_PIN || '').trim();
+  const pin = String(env.KITCHEN_PIN || env.WAITER_PIN || '').trim();
   if (!pin) return 'no_pin';
   return (request.headers.get('X-Haccp-Pin') || '').trim() === pin ? null : 'pin';
 }
